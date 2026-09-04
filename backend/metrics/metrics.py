@@ -1,43 +1,38 @@
+"""Lightweight in-process metrics suitable for demos and benchmarks."""
+from dataclasses import dataclass, field
+from time import time
+
+
+@dataclass
 class Metrics:
-    """
-    Tracks cache performance metrics
-    """
+    hits: int = 0
+    misses: int = 0
+    total_latency_ms: float = 0.0
+    backend_cost: float = 0.0
+    requests: int = 0
+    history: list[dict] = field(default_factory=list)
 
-    def __init__(self):
-        self.hits = 0
-        self.total_requests = 0
-        self.total_latency = 0
-        self.total_cost = 0
+    def record(self, hit: bool, latency_ms: float, cost: float = 0.0) -> None:
+        self.requests += 1
+        self.hits += int(hit)
+        self.misses += int(not hit)
+        self.total_latency_ms += latency_ms
+        self.backend_cost += cost
+        self.history.append({
+            "timestamp": time(),
+            "request": self.requests,
+            "hit_rate": self.hits / self.requests,
+            "latency_ms": latency_ms,
+            "cost": cost,
+        })
+        # Keep enough points for a useful dashboard without unbounded growth.
+        self.history = self.history[-500:]
 
-    def record_hit(self):
-        self.hits += 1
+    def snapshot(self) -> dict[str, float]:
+        return {"hit_rate": self.hits / self.requests if self.requests else 0.0,
+                "average_latency_ms": self.total_latency_ms / self.requests if self.requests else 0.0,
+                "cost": self.backend_cost, "requests": self.requests}
 
-    def record_request(self, latency, cost):
-        self.total_requests += 1
-        self.total_latency += latency
-        self.total_cost += cost
-
-    def results(self):
-        hit_rate = self.hits / self.total_requests if self.total_requests else 0
-        avg_latency = self.total_latency / self.total_requests if self.total_requests else 0
-
-        return {
-            "hit_rate": hit_rate,
-            "avg_latency": avg_latency,
-            "cost": self.total_cost
-        }
-
-
-# ✅ TEST BLOCK
-if __name__ == "__main__":
-    m = Metrics()
-
-    # simulate 5 requests
-    m.record_request(0.01, 1)
-    m.record_request(0.02, 2)
-    m.record_hit()
-    m.record_request(0.01, 0)
-    m.record_hit()
-    m.record_request(0.03, 3)
-
-    print(m.results())
+    def time_series(self) -> list[dict]:
+        """Return request-level points for live dashboard charts."""
+        return self.history.copy()

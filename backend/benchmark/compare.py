@@ -1,87 +1,53 @@
-from backend.workloads.backend_simulator import BackendSimulator
-from backend.workloads.workload_generator import WorkloadGenerator
+"""CLI and reusable benchmark for identical cache-policy workloads."""
+import argparse
+from time import perf_counter
+
+from backend.cache.cache_manager import AdaptiveCacheManager
 from backend.metrics.metrics import Metrics
-
-from backend.algorithms.lru import LRUCache
-from backend.algorithms.lfu import LFUCache
-from backend.algorithms.gds import GDSCache
-from backend.algorithms.adaptive import AdaptiveCache
+from backend.workloads.backend_simulator import fetch_data
+from backend.workloads.workload_generator import generate_workload
 
 
-class Benchmark:
-    def __init__(self, cache, workload):
-        self.cache = cache
-        self.workload = workload
-        self.backend = BackendSimulator()
-        self.metrics = Metrics()
-
-    def run(self):
-        for key in self.workload:
-            value = self.cache.get(key)
-
-            if value is not None:
-                self.metrics.record_hit()
-                latency = 0.001  # cache hit
-                cost = 0
-            else:
-                value, latency, cost = self.backend.fetch(key)
-                self.cache.put(key, value, cost)
-
-            self.metrics.record_request(latency, cost)
-
-        return self.metrics.results()
+def run(algorithm: str, workload: list[str], workload_type: str, capacity: int) -> dict:
+    """Measure one cache algorithm against a pre-generated workload."""
+    cache, metrics = AdaptiveCacheManager(algorithm, capacity), Metrics()
+    cache.set_workload(workload_type)
+    for key in workload:
+        started = perf_counter()
+        value = cache.get(key)
+        hit, cost = value is not None, 0.0
+        if not hit:
+            value, cost = fetch_data(key)
+            cache.put(key, value, cost)
+        metrics.record(hit, (perf_counter() - started) * 1000, cost)
+    return metrics.snapshot()
 
 
-def run_comparison(workload_type="spike", requests=100, capacity=20):
-    """Return metrics for every policy on one selected workload."""
-    generator = WorkloadGenerator()
-    workloads = {
-        "steady": generator.steady,
-        "spike": generator.spike,
-        "gradual": generator.gradual,
-    }
-    if workload_type not in workloads:
-        raise ValueError("workload_type must be steady, spike, or gradual")
-
-    workload = workloads[workload_type](requests)
-    algorithms = {
-        "LRU": LRUCache(capacity),
-        "LFU": LFUCache(capacity),
-        "GDS": GDSCache(capacity),
-        "Adaptive": AdaptiveCache(capacity),
-    }
-    return [{"algorithm": name, **Benchmark(cache, workload).run()}
-            for name, cache in algorithms.items()]
+def run_comparison(workload_type: str = "spike", requests: int = 200,
+                   capacity: int = 25) -> list[dict]:
+    """Return LRU, LFU, GDS, and Adaptive results for one workload type."""
+    workload = generate_workload(workload_type, requests)
+    return [
+        {"algorithm": algorithm.upper(),
+         **run(algorithm, workload, workload_type, capacity)}
+        for algorithm in ("lru", "lfu", "gds", "adaptive")
+    ]
 
 
-def run_all():
-    wg = WorkloadGenerator()
+def main() -> None:
+    """Run the comparison from the command line."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--workload", choices=["steady", "spike", "gradual"], default="spike")
+    parser.add_argument("--requests", type=int, default=200)
+    parser.add_argument("--capacity", type=int, default=25)
+    args = parser.parse_args()
 
-    # 🔁 Change workload here
-    workload = wg.spike()
-
-    algorithms = {
-        "LRU": LRUCache(20),
-        "LFU": LFUCache(20),
-        "GDS": GDSCache(20),
-        "Adaptive": AdaptiveCache(20),
-    }
-
-    print("\n=== Benchmark Results ===")
-    print(f"{'Algorithm':<10} | {'Hit Rate':<10} | {'Latency':<10} | {'Cost':<10}")
-    print("-" * 50)
-
-    for name, cache in algorithms.items():
-        bench = Benchmark(cache, workload)
-        result = bench.run()
-
-        print(
-            f"{name:<10} | "
-            f"{result['hit_rate']:.2f}     | "
-            f"{result['avg_latency']:.4f}   | "
-            f"{result['cost']}"
-        )
+    print(f"Benchmark: {args.workload} ({args.requests} requests)")
+    for result in run_comparison(args.workload, args.requests, args.capacity):
+        print(f"{result['algorithm']:8} hit_rate={result['hit_rate']:.1%}  "
+              f"avg_latency={result['average_latency_ms']:.2f}ms  "
+              f"cost={result['cost']:.2f}")
 
 
 if __name__ == "__main__":
-    run_all()
+    main()

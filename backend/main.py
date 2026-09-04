@@ -1,44 +1,56 @@
-"""FastAPI entry point for the Adaptive Cache Management System."""
-from time import perf_counter
+"""FastAPI entry point exposing cache data and dashboard observability APIs."""
 from fastapi import FastAPI, HTTPException, Query
-from backend.cache.cache_manager import AdaptiveCacheManager
-from backend.config import settings
-from backend.metrics.metrics import Metrics
-from backend.workloads.backend_simulator import fetch_data
+
+from backend.dashboard_service import DashboardService
+from backend.metrics.logger import recent_decisions
 
 app = FastAPI(title="Adaptive Cache Management System", version="1.0.0")
-cache = AdaptiveCacheManager()
-metrics = Metrics()
+system = DashboardService()
 
 
 @app.get("/data/{key}")
 def get_data(key: str, workload: str = Query("steady", pattern="^(steady|spike|gradual)$")) -> dict:
-    """Fetch a value from cache or simulated backend and populate the cache."""
-    cache.set_workload(workload)
-    started = perf_counter()
-    value = cache.get(key)
-    hit, cost = value is not None, 0.0
-    if not hit:
-        value, cost = fetch_data(key)
-        cache.put(key, value, cost)
-    latency_ms = (perf_counter() - started) * 1000
-    metrics.record(hit, latency_ms, cost)
-    return {"data": value, "cache_hit": hit, "latency_ms": round(latency_ms, 3),
-            "algorithm": cache.algorithm}
+    """Fetch a value from cache or the simulated backend."""
+    return system.request(key, workload)
 
 
 @app.get("/metrics")
 def get_metrics() -> dict:
-    """Expose in-process cache metrics for a dashboard or quick inspection."""
-    return metrics.snapshot()
+    """Return hit rate, average latency, total cost, and request count."""
+    return system.overview()
+
+
+@app.get("/metrics/history")
+def get_metric_history() -> list[dict]:
+    """Return per-request measurements for live charts."""
+    return system.metric_history()
+
+
+@app.get("/cache/state")
+def get_cache_state() -> list[dict]:
+    """Return all current cache keys and their metadata."""
+    return system.cache_state()
+
+
+@app.get("/decisions")
+def get_decisions(limit: int = Query(50, ge=1, le=200)) -> list[dict]:
+    """Return recent HIT, MISS, KEEP, EVICT, and REFRESH decisions."""
+    return recent_decisions(limit)
 
 
 @app.post("/algorithm/{algorithm}")
 def switch_algorithm(algorithm: str) -> dict:
-    """Switch policy; cache contents are intentionally reset for fair behavior."""
-    global cache
+    """Switch algorithm and reset the isolated runtime session."""
     try:
-        cache = AdaptiveCacheManager(algorithm)
+        system.select_algorithm(algorithm)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"algorithm": cache.algorithm, "message": "Cache policy switched"}
+    return system.overview()
+
+
+@app.post("/simulate/{workload}")
+def simulate_workload(workload: str, requests: int = Query(50, ge=1, le=500)) -> dict:
+    """Generate traffic through the active cache for dashboards and demos."""
+    if workload not in {"steady", "spike", "gradual"}:
+        raise HTTPException(status_code=400, detail="Unknown workload")
+    return system.simulate_workload(workload, requests)

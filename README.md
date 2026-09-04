@@ -48,7 +48,9 @@ python -m backend.benchmark.compare
 streamlit run dashboard/app.py
 ```
 
-The dashboard runs a selected `steady`, `spike`, or `gradual` workload and shows a result table plus hit-rate, latency, and cost comparison charts.
+The dashboard runs a selected `steady`, `spike`, or `gradual` workload through the real cache manager. It shows live hit-rate and latency history, algorithm comparisons, cache-entry metadata, and recent cache decisions.
+
+The FastAPI service exposes the same observability data at `/metrics`, `/metrics/history`, `/cache/state`, and `/decisions`; use `POST /simulate/{workload}` to generate traffic through the API session.
 
 ## Layout
 

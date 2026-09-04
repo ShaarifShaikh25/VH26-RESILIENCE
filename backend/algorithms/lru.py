@@ -1,22 +1,36 @@
 """Least Recently Used cache policy."""
+import json
+from collections import OrderedDict
 from backend.algorithms.base import BaseCache
 from backend.cache.cache_object import CacheObject
 
 
 class LRUCache(BaseCache):
+    def __init__(self, capacity: int) -> None:
+        super().__init__(capacity)
+        self.items: OrderedDict[str, CacheObject] = OrderedDict()
+
+    def get(self, key: str) -> CacheObject | None:
+        item = super().get(key)          # calls touch() on the CacheObject
+        if item:
+            self.items.move_to_end(key)  # mark as most recently used
+        return item
+
     def put(self, key, value, cost=None) -> str | None:
-        """Store a value; cost is accepted for the common cache interface."""
-        item = self._cache_object(key, value, cost)
-        if item.key in self.items:
-            self.items[item.key] = item
+        if key in self.items:
+            item = self.items[key]
+            item.value = value
+            item.cost = 0.0 if cost is None else float(cost)
+            item.size = max(len(json.dumps(value, default=str)), 1)
+            item.touch()
+            self.items.move_to_end(key)
             return None
         victim = self.evict() if len(self.items) >= self.capacity else None
-        self.items[item.key] = item
+        self.items[key] = self._cache_object(key, value, cost)
         return victim
 
     def evict(self) -> str | None:
         if not self.items:
             return None
-        victim = min(self.items.values(), key=lambda x: x.last_accessed).key
-        del self.items[victim]
+        victim, _ = self.items.popitem(last=False)  # pop least recently used (front)
         return victim
