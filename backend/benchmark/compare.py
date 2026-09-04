@@ -5,6 +5,7 @@ from backend.metrics.metrics import Metrics
 from backend.algorithms.lru import LRUCache
 from backend.algorithms.lfu import LFUCache
 from backend.algorithms.gds import GDSCache
+from backend.algorithms.adaptive import AdaptiveCache
 
 
 class Benchmark:
@@ -41,6 +42,7 @@ def run_all():
         "LRU": LRUCache(20),
         "LFU": LFUCache(20),
         "GDS": GDSCache(20),
+        "Adaptive": AdaptiveCache(20),
     }
 
     print("\n=== Benchmark Results ===")
