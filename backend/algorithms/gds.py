@@ -9,9 +9,7 @@ class GDSCache(BaseCache):
         self.L = 0.0
         self.scores: dict[str, float] = {}
 
-    def put(self, key, value, cost=None) -> str | None:
-        """Store a value and use its cost in the GDS priority calculation."""
-        item = self._cache_object(key, value, cost)
+    def put(self, item: CacheObject) -> str | None:
         if item.key in self.items:
             self.items[item.key] = item
             self.scores[item.key] = item.cost / max(item.size, 1) + self.L

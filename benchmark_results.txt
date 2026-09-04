@@ -1,0 +1,289 @@
+
+FINAL CACHE BENCHMARK
+=====================================================================================
+
+WORKLOAD: STEADY
+-------------------------------------------------------------------------------------
+Algorithm         Hits    Misses      Hit Rate      Time(ms)
+-------------------------------------------------------------------------------------
+2026-09-04 14:18:37,872 INFO key=key0 decision=retain algorithm=lru
+2026-09-04 14:18:37,873 INFO key=key1 decision=retain algorithm=lru
+2026-09-04 14:18:37,874 INFO key=key2 decision=retain algorithm=lru
+2026-09-04 14:18:37,875 INFO key=key3 decision=retain algorithm=lru
+2026-09-04 14:18:37,875 INFO key=key4 decision=retain algorithm=lru
+2026-09-04 14:18:37,883 INFO key=key3 decision=evict algorithm=lru
+2026-09-04 14:18:37,884 INFO key=key5 decision=retain algorithm=lru
+2026-09-04 14:18:37,886 INFO key=key4 decision=evict algorithm=lru
+2026-09-04 14:18:37,886 INFO key=key6 decision=retain algorithm=lru
+2026-09-04 14:18:37,889 INFO key=key5 decision=evict algorithm=lru
+2026-09-04 14:18:37,890 INFO key=key7 decision=retain algorithm=lru
+2026-09-04 14:18:37,892 INFO key=key6 decision=evict algorithm=lru
+2026-09-04 14:18:37,893 INFO key=key8 decision=retain algorithm=lru
+2026-09-04 14:18:37,895 INFO key=key7 decision=evict algorithm=lru
+2026-09-04 14:18:37,896 INFO key=key9 decision=retain algorithm=lru
+2026-09-04 14:18:37,898 INFO key=key8 decision=evict algorithm=lru
+2026-09-04 14:18:37,898 INFO key=key3 decision=retain algorithm=lru
+2026-09-04 14:18:37,899 INFO key=key9 decision=evict algorithm=lru
+2026-09-04 14:18:37,900 INFO key=key4 decision=retain algorithm=lru
+2026-09-04 14:18:37,900 INFO key=key0 decision=evict algorithm=lru
+2026-09-04 14:18:37,901 INFO key=key5 decision=retain algorithm=lru
+LRU                 21         8        72.41%         25.50
+2026-09-04 14:18:37,909 INFO key=key0 decision=retain algorithm=lfu
+2026-09-04 14:18:37,910 INFO key=key1 decision=retain algorithm=lfu
+2026-09-04 14:18:37,911 INFO key=key2 decision=retain algorithm=lfu
+2026-09-04 14:18:37,912 INFO key=key3 decision=retain algorithm=lfu
+2026-09-04 14:18:37,913 INFO key=key4 decision=retain algorithm=lfu
+2026-09-04 14:18:37,920 INFO key=key3 decision=evict algorithm=lfu
+2026-09-04 14:18:37,921 INFO key=key5 decision=retain algorithm=lfu
+2026-09-04 14:18:37,925 INFO key=key5 decision=evict algorithm=lfu
+2026-09-04 14:18:37,926 INFO key=key6 decision=retain algorithm=lfu
+2026-09-04 14:18:37,930 INFO key=key6 decision=evict algorithm=lfu
+2026-09-04 14:18:37,931 INFO key=key7 decision=retain algorithm=lfu
+2026-09-04 14:18:37,932 INFO key=key7 decision=evict algorithm=lfu
+2026-09-04 14:18:37,933 INFO key=key8 decision=retain algorithm=lfu
+2026-09-04 14:18:37,936 INFO key=key8 decision=evict algorithm=lfu
+2026-09-04 14:18:37,937 INFO key=key9 decision=retain algorithm=lfu
+2026-09-04 14:18:37,941 INFO key=key9 decision=evict algorithm=lfu
+2026-09-04 14:18:37,942 INFO key=key3 decision=retain algorithm=lfu
+2026-09-04 14:18:37,944 INFO key=key3 decision=evict algorithm=lfu
+2026-09-04 14:18:37,945 INFO key=key5 decision=retain algorithm=lfu
+LFU                 22         7        75.86%         32.28
+2026-09-04 14:18:37,955 INFO key=key0 decision=retain algorithm=gds
+2026-09-04 14:18:37,957 INFO key=key1 decision=retain algorithm=gds
+2026-09-04 14:18:37,958 INFO key=key2 decision=retain algorithm=gds
+2026-09-04 14:18:37,960 INFO key=key3 decision=retain algorithm=gds
+2026-09-04 14:18:37,961 INFO key=key4 decision=retain algorithm=gds
+2026-09-04 14:18:37,969 INFO key=key0 decision=evict algorithm=gds
+2026-09-04 14:18:37,970 INFO key=key5 decision=retain algorithm=gds
+2026-09-04 14:18:37,971 INFO key=key1 decision=evict algorithm=gds
+2026-09-04 14:18:37,972 INFO key=key0 decision=retain algorithm=gds
+2026-09-04 14:18:37,974 INFO key=key2 decision=evict algorithm=gds
+2026-09-04 14:18:37,976 INFO key=key1 decision=retain algorithm=gds
+2026-09-04 14:18:37,978 INFO key=key3 decision=evict algorithm=gds
+2026-09-04 14:18:37,980 INFO key=key6 decision=retain algorithm=gds
+2026-09-04 14:18:37,983 INFO key=key4 decision=evict algorithm=gds
+2026-09-04 14:18:37,983 INFO key=key2 decision=retain algorithm=gds
+2026-09-04 14:18:37,985 INFO key=key5 decision=evict algorithm=gds
+2026-09-04 14:18:37,986 INFO key=key7 decision=retain algorithm=gds
+2026-09-04 14:18:37,990 INFO key=key0 decision=evict algorithm=gds
+2026-09-04 14:18:37,992 INFO key=key8 decision=retain algorithm=gds
+2026-09-04 14:18:37,997 INFO key=key1 decision=evict algorithm=gds
+2026-09-04 14:18:37,999 INFO key=key0 decision=retain algorithm=gds
+2026-09-04 14:18:38,000 INFO key=key6 decision=evict algorithm=gds
+2026-09-04 14:18:38,001 INFO key=key1 decision=retain algorithm=gds
+2026-09-04 14:18:38,003 INFO key=key2 decision=evict algorithm=gds
+2026-09-04 14:18:38,005 INFO key=key9 decision=retain algorithm=gds
+2026-09-04 14:18:38,010 INFO key=key7 decision=evict algorithm=gds
+2026-09-04 14:18:38,012 INFO key=key2 decision=retain algorithm=gds
+2026-09-04 14:18:38,014 INFO key=key8 decision=evict algorithm=gds
+2026-09-04 14:18:38,016 INFO key=key3 decision=retain algorithm=gds
+2026-09-04 14:18:38,017 INFO key=key0 decision=evict algorithm=gds
+2026-09-04 14:18:38,019 INFO key=key4 decision=retain algorithm=gds
+2026-09-04 14:18:38,020 INFO key=key1 decision=evict algorithm=gds
+2026-09-04 14:18:38,022 INFO key=key5 decision=retain algorithm=gds
+GDS                 15        14        51.72%         61.00
+2026-09-04 14:18:38,082 INFO key=key0 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,083 INFO key=key1 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,084 INFO key=key2 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,085 INFO key=key3 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,087 INFO key=key4 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,098 INFO key=key3 decision=evict algorithm=adaptive
+2026-09-04 14:18:38,100 INFO key=key5 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,103 INFO key=key5 decision=evict algorithm=adaptive
+2026-09-04 14:18:38,105 INFO key=key6 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,111 INFO key=key6 decision=evict algorithm=adaptive
+2026-09-04 14:18:38,113 INFO key=key7 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,116 INFO key=key7 decision=evict algorithm=adaptive
+2026-09-04 14:18:38,117 INFO key=key8 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,122 INFO key=key8 decision=evict algorithm=adaptive
+2026-09-04 14:18:38,125 INFO key=key9 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,130 INFO key=key9 decision=evict algorithm=adaptive
+2026-09-04 14:18:38,132 INFO key=key3 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,134 INFO key=key3 decision=evict algorithm=adaptive
+2026-09-04 14:18:38,136 INFO key=key5 decision=retain algorithm=adaptive
+ADAPTIVE            22         7        75.86%         48.88
+
+WORKLOAD: SPIKE
+-------------------------------------------------------------------------------------
+Algorithm         Hits    Misses      Hit Rate      Time(ms)
+-------------------------------------------------------------------------------------
+2026-09-04 14:18:38,149 INFO key=key0 decision=retain algorithm=lru
+2026-09-04 14:18:38,150 INFO key=key1 decision=retain algorithm=lru
+2026-09-04 14:18:38,150 INFO key=key2 decision=retain algorithm=lru
+2026-09-04 14:18:38,151 INFO key=key3 decision=retain algorithm=lru
+2026-09-04 14:18:38,152 INFO key=key4 decision=retain algorithm=lru
+2026-09-04 14:18:38,164 INFO key=key0 decision=evict algorithm=lru
+2026-09-04 14:18:38,165 INFO key=key5 decision=retain algorithm=lru
+2026-09-04 14:18:38,166 INFO key=key3 decision=evict algorithm=lru
+2026-09-04 14:18:38,167 INFO key=key6 decision=retain algorithm=lru
+2026-09-04 14:18:38,167 INFO key=key4 decision=evict algorithm=lru
+2026-09-04 14:18:38,168 INFO key=key7 decision=retain algorithm=lru
+LRU                 23         3        88.46%         25.06
+2026-09-04 14:18:38,188 INFO key=key0 decision=retain algorithm=lfu
+2026-09-04 14:18:38,190 INFO key=key1 decision=retain algorithm=lfu
+2026-09-04 14:18:38,192 INFO key=key2 decision=retain algorithm=lfu
+2026-09-04 14:18:38,194 INFO key=key3 decision=retain algorithm=lfu
+2026-09-04 14:18:38,195 INFO key=key4 decision=retain algorithm=lfu
+2026-09-04 14:18:38,212 INFO key=key0 decision=evict algorithm=lfu
+2026-09-04 14:18:38,213 INFO key=key5 decision=retain algorithm=lfu
+2026-09-04 14:18:38,215 INFO key=key5 decision=evict algorithm=lfu
+2026-09-04 14:18:38,216 INFO key=key6 decision=retain algorithm=lfu
+2026-09-04 14:18:38,217 INFO key=key6 decision=evict algorithm=lfu
+2026-09-04 14:18:38,218 INFO key=key7 decision=retain algorithm=lfu
+LFU                 23         3        88.46%         31.22
+2026-09-04 14:18:38,236 INFO key=key0 decision=retain algorithm=gds
+2026-09-04 14:18:38,238 INFO key=key1 decision=retain algorithm=gds
+2026-09-04 14:18:38,239 INFO key=key2 decision=retain algorithm=gds
+2026-09-04 14:18:38,242 INFO key=key3 decision=retain algorithm=gds
+2026-09-04 14:18:38,245 INFO key=key4 decision=retain algorithm=gds
+2026-09-04 14:18:38,260 INFO key=key0 decision=evict algorithm=gds
+GDS                 21         5        80.77%         30.56
+2026-09-04 14:18:38,261 INFO key=key5 decision=retain algorithm=gds
+2026-09-04 14:18:38,263 INFO key=key1 decision=evict algorithm=gds
+2026-09-04 14:18:38,264 INFO key=key6 decision=retain algorithm=gds
+2026-09-04 14:18:38,265 INFO key=key2 decision=evict algorithm=gds
+2026-09-04 14:18:38,266 INFO key=key7 decision=retain algorithm=gds
+2026-09-04 14:18:38,267 INFO key=key3 decision=evict algorithm=gds
+2026-09-04 14:18:38,268 INFO key=key1 decision=retain algorithm=gds
+2026-09-04 14:18:38,270 INFO key=key4 decision=evict algorithm=gds
+2026-09-04 14:18:38,271 INFO key=key2 decision=retain algorithm=gds
+2026-09-04 14:18:38,285 INFO key=key0 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,287 INFO key=key1 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,288 INFO key=key2 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,291 INFO key=key3 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,295 INFO key=key4 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,314 INFO key=key0 decision=evict algorithm=adaptive
+2026-09-04 14:18:38,315 INFO key=key5 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,317 INFO key=key5 decision=evict algorithm=adaptive
+2026-09-04 14:18:38,319 INFO key=key6 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,320 INFO key=key6 decision=evict algorithm=adaptive
+2026-09-04 14:18:38,322 INFO key=key7 decision=retain algorithm=adaptive
+ADAPTIVE            23         3        88.46%         37.85
+
+WORKLOAD: GRADUAL
+-------------------------------------------------------------------------------------
+Algorithm         Hits    Misses      Hit Rate      Time(ms)
+-------------------------------------------------------------------------------------
+2026-09-04 14:18:38,348 INFO key=key0 decision=retain algorithm=lru
+2026-09-04 14:18:38,349 INFO key=key1 decision=retain algorithm=lru
+2026-09-04 14:18:38,350 INFO key=key2 decision=retain algorithm=lru
+2026-09-04 14:18:38,351 INFO key=key3 decision=retain algorithm=lru
+2026-09-04 14:18:38,353 INFO key=key4 decision=retain algorithm=lru
+2026-09-04 14:18:38,368 INFO key=key0 decision=evict algorithm=lru
+2026-09-04 14:18:38,369 INFO key=key5 decision=retain algorithm=lru
+2026-09-04 14:18:38,370 INFO key=key1 decision=evict algorithm=lru
+2026-09-04 14:18:38,370 INFO key=key0 decision=retain algorithm=lru
+2026-09-04 14:18:38,371 INFO key=key2 decision=evict algorithm=lru
+2026-09-04 14:18:38,372 INFO key=key1 decision=retain algorithm=lru
+2026-09-04 14:18:38,374 INFO key=key3 decision=evict algorithm=lru
+2026-09-04 14:18:38,376 INFO key=key2 decision=retain algorithm=lru
+2026-09-04 14:18:38,377 INFO key=key4 decision=evict algorithm=lru
+2026-09-04 14:18:38,379 INFO key=key3 decision=retain algorithm=lru
+2026-09-04 14:18:38,382 INFO key=key5 decision=evict algorithm=lru
+2026-09-04 14:18:38,383 INFO key=key4 decision=retain algorithm=lru
+2026-09-04 14:18:38,384 INFO key=key0 decision=evict algorithm=lru
+2026-09-04 14:18:38,385 INFO key=key5 decision=retain algorithm=lru
+2026-09-04 14:18:38,386 INFO key=key1 decision=evict algorithm=lru
+2026-09-04 14:18:38,387 INFO key=key6 decision=retain algorithm=lru
+2026-09-04 14:18:38,389 INFO key=key2 decision=evict algorithm=lru
+2026-09-04 14:18:38,391 INFO key=key0 decision=retain algorithm=lru
+2026-09-04 14:18:38,394 INFO key=key3 decision=evict algorithm=lru
+2026-09-04 14:18:38,396 INFO key=key1 decision=retain algorithm=lru
+2026-09-04 14:18:38,398 INFO key=key4 decision=evict algorithm=lru
+2026-09-04 14:18:38,399 INFO key=key2 decision=retain algorithm=lru
+2026-09-04 14:18:38,401 INFO key=key5 decision=evict algorithm=lru
+2026-09-04 14:18:38,402 INFO key=key3 decision=retain algorithm=lru
+2026-09-04 14:18:38,403 INFO key=key6 decision=evict algorithm=lru
+2026-09-04 14:18:38,404 INFO key=key4 decision=retain algorithm=lru
+2026-09-04 14:18:38,405 INFO key=key0 decision=evict algorithm=lru
+2026-09-04 14:18:38,407 INFO key=key5 decision=retain algorithm=lru
+2026-09-04 14:18:38,410 INFO key=key1 decision=evict algorithm=lru
+2026-09-04 14:18:38,412 INFO key=key6 decision=retain algorithm=lru
+2026-09-04 14:18:38,414 INFO key=key2 decision=evict algorithm=lru
+2026-09-04 14:18:38,415 INFO key=key7 decision=retain algorithm=lru
+LRU                 17        16        51.52%         61.61
+2026-09-04 14:18:38,429 INFO key=key0 decision=retain algorithm=lfu
+2026-09-04 14:18:38,431 INFO key=key1 decision=retain algorithm=lfu
+2026-09-04 14:18:38,432 INFO key=key2 decision=retain algorithm=lfu
+2026-09-04 14:18:38,433 INFO key=key3 decision=retain algorithm=lfu
+2026-09-04 14:18:38,435 INFO key=key4 decision=retain algorithm=lfu
+2026-09-04 14:18:38,456 INFO key=key4 decision=evict algorithm=lfu
+2026-09-04 14:18:38,457 INFO key=key5 decision=retain algorithm=lfu
+2026-09-04 14:18:38,464 INFO key=key5 decision=evict algorithm=lfu
+2026-09-04 14:18:38,466 INFO key=key4 decision=retain algorithm=lfu
+2026-09-04 14:18:38,467 INFO key=key4 decision=evict algorithm=lfu
+2026-09-04 14:18:38,468 INFO key=key5 decision=retain algorithm=lfu
+2026-09-04 14:18:38,469 INFO key=key5 decision=evict algorithm=lfu
+2026-09-04 14:18:38,471 INFO key=key6 decision=retain algorithm=lfu
+2026-09-04 14:18:38,479 INFO key=key6 decision=evict algorithm=lfu
+2026-09-04 14:18:38,480 INFO key=key4 decision=retain algorithm=lfu
+2026-09-04 14:18:38,482 INFO key=key4 decision=evict algorithm=lfu
+2026-09-04 14:18:38,484 INFO key=key5 decision=retain algorithm=lfu
+2026-09-04 14:18:38,485 INFO key=key5 decision=evict algorithm=lfu
+2026-09-04 14:18:38,486 INFO key=key6 decision=retain algorithm=lfu
+2026-09-04 14:18:38,488 INFO key=key6 decision=evict algorithm=lfu
+2026-09-04 14:18:38,490 INFO key=key7 decision=retain algorithm=lfu
+LFU                 25         8        75.76%         55.15
+2026-09-04 14:18:38,516 INFO key=key0 decision=retain algorithm=gds
+2026-09-04 14:18:38,517 INFO key=key1 decision=retain algorithm=gds
+2026-09-04 14:18:38,519 INFO key=key2 decision=retain algorithm=gds
+2026-09-04 14:18:38,520 INFO key=key3 decision=retain algorithm=gds
+2026-09-04 14:18:38,522 INFO key=key4 decision=retain algorithm=gds
+2026-09-04 14:18:38,548 INFO key=key0 decision=evict algorithm=gds
+2026-09-04 14:18:38,549 INFO key=key5 decision=retain algorithm=gds
+2026-09-04 14:18:38,551 INFO key=key1 decision=evict algorithm=gds
+2026-09-04 14:18:38,553 INFO key=key0 decision=retain algorithm=gds
+2026-09-04 14:18:38,555 INFO key=key2 decision=evict algorithm=gds
+2026-09-04 14:18:38,557 INFO key=key1 decision=retain algorithm=gds
+2026-09-04 14:18:38,559 INFO key=key3 decision=evict algorithm=gds
+2026-09-04 14:18:38,561 INFO key=key2 decision=retain algorithm=gds
+2026-09-04 14:18:38,562 INFO key=key4 decision=evict algorithm=gds
+2026-09-04 14:18:38,564 INFO key=key3 decision=retain algorithm=gds
+2026-09-04 14:18:38,568 INFO key=key5 decision=evict algorithm=gds
+2026-09-04 14:18:38,570 INFO key=key4 decision=retain algorithm=gds
+2026-09-04 14:18:38,573 INFO key=key0 decision=evict algorithm=gds
+2026-09-04 14:18:38,575 INFO key=key5 decision=retain algorithm=gds
+2026-09-04 14:18:38,578 INFO key=key1 decision=evict algorithm=gds
+2026-09-04 14:18:38,580 INFO key=key6 decision=retain algorithm=gds
+2026-09-04 14:18:38,582 INFO key=key2 decision=evict algorithm=gds
+2026-09-04 14:18:38,584 INFO key=key0 decision=retain algorithm=gds
+2026-09-04 14:18:38,585 INFO key=key3 decision=evict algorithm=gds
+2026-09-04 14:18:38,587 INFO key=key1 decision=retain algorithm=gds
+2026-09-04 14:18:38,588 INFO key=key4 decision=evict algorithm=gds
+2026-09-04 14:18:38,589 INFO key=key2 decision=retain algorithm=gds
+2026-09-04 14:18:38,591 INFO key=key5 decision=evict algorithm=gds
+2026-09-04 14:18:38,595 INFO key=key3 decision=retain algorithm=gds
+2026-09-04 14:18:38,597 INFO key=key6 decision=evict algorithm=gds
+2026-09-04 14:18:38,599 INFO key=key4 decision=retain algorithm=gds
+2026-09-04 14:18:38,600 INFO key=key0 decision=evict algorithm=gds
+2026-09-04 14:18:38,602 INFO key=key5 decision=retain algorithm=gds
+2026-09-04 14:18:38,604 INFO key=key1 decision=evict algorithm=gds
+2026-09-04 14:18:38,606 INFO key=key6 decision=retain algorithm=gds
+2026-09-04 14:18:38,608 INFO key=key2 decision=evict algorithm=gds
+2026-09-04 14:18:38,611 INFO key=key7 decision=retain algorithm=gds
+GDS                 17        16        51.52%         89.58
+2026-09-04 14:18:38,629 INFO key=key0 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,631 INFO key=key1 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,634 INFO key=key2 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,636 INFO key=key3 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,638 INFO key=key4 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,696 INFO key=key4 decision=evict algorithm=adaptive
+2026-09-04 14:18:38,698 INFO key=key5 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,705 INFO key=key5 decision=evict algorithm=adaptive
+2026-09-04 14:18:38,707 INFO key=key4 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,710 INFO key=key4 decision=evict algorithm=adaptive
+2026-09-04 14:18:38,713 INFO key=key5 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,716 INFO key=key5 decision=evict algorithm=adaptive
+2026-09-04 14:18:38,718 INFO key=key6 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,736 INFO key=key6 decision=evict algorithm=adaptive
+2026-09-04 14:18:38,740 INFO key=key4 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,743 INFO key=key4 decision=evict algorithm=adaptive
+2026-09-04 14:18:38,746 INFO key=key5 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,749 INFO key=key5 decision=evict algorithm=adaptive
+2026-09-04 14:18:38,754 INFO key=key6 decision=retain algorithm=adaptive
+2026-09-04 14:18:38,757 INFO key=key6 decision=evict algorithm=adaptive
+2026-09-04 14:18:38,761 INFO key=key7 decision=retain algorithm=adaptive
+ADAPTIVE            25         8        75.76%        123.35
+
+=====================================================================================
+BENCHMARK COMPLETE
