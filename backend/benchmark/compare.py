@@ -1,39 +1,63 @@
-"""CLI benchmark comparing cache policies against identical traffic."""
-import argparse
-from time import perf_counter
-from backend.cache.cache_manager import AdaptiveCacheManager
+from backend.workloads.backend_simulator import BackendSimulator
+from backend.workloads.workload_generator import WorkloadGenerator
 from backend.metrics.metrics import Metrics
-from backend.workloads.backend_simulator import fetch_data
-from backend.workloads.workload_generator import generate_workload
+
+from backend.algorithms.lru import LRUCache
+from backend.algorithms.lfu import LFUCache
+from backend.algorithms.gds import GDSCache
 
 
-def run(algorithm: str, workload: list[str], workload_type: str, capacity: int) -> dict:
-    cache, metrics = AdaptiveCacheManager(algorithm, capacity), Metrics()
-    cache.set_workload(workload_type)
-    for key in workload:
-        started = perf_counter()
-        value = cache.get(key)
-        hit, cost = value is not None, 0.0
-        if not hit:
-            value, cost = fetch_data(key)
-            cache.put(key, value, cost)
-        metrics.record(hit, (perf_counter() - started) * 1000, cost)
-    return metrics.snapshot()
+class Benchmark:
+    def __init__(self, cache, workload):
+        self.cache = cache
+        self.workload = workload
+        self.backend = BackendSimulator()
+        self.metrics = Metrics()
+
+    def run(self):
+        for key in self.workload:
+            value = self.cache.get(key)
+
+            if value is not None:
+                self.metrics.record_hit()
+                latency = 0.001  # cache hit
+                cost = 0
+            else:
+                value, latency, cost = self.backend.fetch(key)
+                self.cache.put(key, value, cost)
+
+            self.metrics.record_request(latency, cost)
+
+        return self.metrics.results()
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--workload", choices=["steady", "spike", "gradual"], default="spike")
-    parser.add_argument("--requests", type=int, default=200)
-    parser.add_argument("--capacity", type=int, default=25)
-    args = parser.parse_args()
-    workload = generate_workload(args.workload, args.requests)
-    print(f"Benchmark: {args.workload} ({args.requests} requests)")
-    for algorithm in ("lru", "lfu", "gds", "adaptive"):
-        result = run(algorithm, workload, args.workload, args.capacity)
-        print(f"{algorithm:8} hit_rate={result['hit_rate']:.1%}  "
-              f"avg_latency={result['average_latency_ms']:.2f}ms  cost={result['cost']:.2f}")
+def run_all():
+    wg = WorkloadGenerator()
+
+    # 🔁 Change workload here
+    workload = wg.spike()
+
+    algorithms = {
+        "LRU": LRUCache(20),
+        "LFU": LFUCache(20),
+        "GDS": GDSCache(20),
+    }
+
+    print("\n=== Benchmark Results ===")
+    print(f"{'Algorithm':<10} | {'Hit Rate':<10} | {'Latency':<10} | {'Cost':<10}")
+    print("-" * 50)
+
+    for name, cache in algorithms.items():
+        bench = Benchmark(cache, workload)
+        result = bench.run()
+
+        print(
+            f"{name:<10} | "
+            f"{result['hit_rate']:.2f}     | "
+            f"{result['avg_latency']:.4f}   | "
+            f"{result['cost']}"
+        )
 
 
 if __name__ == "__main__":
-    main()
+    run_all()

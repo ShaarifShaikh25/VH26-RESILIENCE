@@ -4,7 +4,9 @@ from backend.cache.cache_object import CacheObject
 
 
 class LRUCache(BaseCache):
-    def put(self, item: CacheObject) -> str | None:
+    def put(self, key, value, cost=None) -> str | None:
+        """Store a value; cost is accepted for the common cache interface."""
+        item = self._cache_object(key, value, cost)
         if item.key in self.items:
             self.items[item.key] = item
             return None
