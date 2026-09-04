@@ -12,6 +12,8 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+The requirements install this project in editable mode, which lets Streamlit import the `backend` package when it runs `dashboard/app.py`.
+
 Optional Redis:
 
 ```bash
@@ -42,11 +44,11 @@ curl -X POST http://127.0.0.1:8000/algorithm/gds
 ## Benchmark and dashboard
 
 ```bash
-python -m backend.benchmark.compare --workload spike --requests 200 --capacity 25
+python -m backend.benchmark.compare
 streamlit run dashboard/app.py
 ```
 
-The benchmark replays one deterministic workload through each policy and prints hit rate, average request latency, and simulated backend cost. GDS uses `score = (cost / size) + L`; the adaptive policy changes its frequency, recency, cost, and size weights for steady, spike, and gradual traffic.
+The dashboard runs a selected `steady`, `spike`, or `gradual` workload and shows a result table plus hit-rate, latency, and cost comparison charts.
 
 ## Layout
 

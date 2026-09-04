@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: adaptive-cache-system
+Version: 0.1.0
+Summary: Benchmarkable adaptive cache eviction policies
+Requires-Python: >=3.10
+Requires-Dist: fastapi<1.0,>=0.110
+Requires-Dist: uvicorn[standard]<1.0,>=0.27
+Requires-Dist: redis<7.0,>=5.0
+Requires-Dist: streamlit<2.0,>=1.30
+Requires-Dist: requests<3.0,>=2.31
+Requires-Dist: pandas<4.0,>=2.0

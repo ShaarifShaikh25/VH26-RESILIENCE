@@ -32,6 +32,28 @@ class Benchmark:
         return self.metrics.results()
 
 
+def run_comparison(workload_type="spike", requests=100, capacity=20):
+    """Return metrics for every policy on one selected workload."""
+    generator = WorkloadGenerator()
+    workloads = {
+        "steady": generator.steady,
+        "spike": generator.spike,
+        "gradual": generator.gradual,
+    }
+    if workload_type not in workloads:
+        raise ValueError("workload_type must be steady, spike, or gradual")
+
+    workload = workloads[workload_type](requests)
+    algorithms = {
+        "LRU": LRUCache(capacity),
+        "LFU": LFUCache(capacity),
+        "GDS": GDSCache(capacity),
+        "Adaptive": AdaptiveCache(capacity),
+    }
+    return [{"algorithm": name, **Benchmark(cache, workload).run()}
+            for name, cache in algorithms.items()]
+
+
 def run_all():
     wg = WorkloadGenerator()
 

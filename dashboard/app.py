@@ -1,18 +1,47 @@
-"""Basic Streamlit view for the API metrics endpoint."""
-import os
-import requests
+"""Interactive visual comparison of cache eviction policies."""
+import pandas as pd
 import streamlit as st
 
-API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
-st.set_page_config(page_title="Adaptive Cache Dashboard", layout="centered")
-st.title("Adaptive Cache Management System")
-st.caption(f"API: {API_URL}")
+from backend.benchmark.compare import run_comparison
 
-try:
-    data = requests.get(f"{API_URL}/metrics", timeout=2).json()
-    st.metric("Hit rate", f"{data['hit_rate']:.1%}")
-    st.metric("Average latency", f"{data['average_latency_ms']:.2f} ms")
-    st.metric("Backend cost", f"{data['cost']:.2f}")
-    st.json(data)
-except requests.RequestException:
-    st.info("Start the FastAPI service, then refresh this page.")
+
+st.set_page_config(page_title="Adaptive Cache Benchmark Dashboard", layout="wide")
+st.title("Adaptive Cache Benchmark Dashboard")
+
+workload_type = st.selectbox(
+    "Workload type",
+    options=["steady", "spike", "gradual"],
+)
+
+with st.spinner(f"Running {workload_type} benchmark..."):
+    results = run_comparison(workload_type)
+
+dataframe = pd.DataFrame(results).rename(columns={
+    "algorithm": "Algorithm",
+    "hit_rate": "Hit Rate",
+    "avg_latency": "Latency",
+    "cost": "Cost",
+})
+
+st.subheader("Benchmark results")
+st.dataframe(
+    dataframe,
+    hide_index=True,
+    column_config={
+        "Hit Rate": st.column_config.NumberColumn(format="%.2f"),
+        "Latency": st.column_config.NumberColumn(format="%.4f s"),
+        "Cost": st.column_config.NumberColumn(format="%.0f"),
+    },
+    use_container_width=True,
+)
+
+hit_rate_chart, latency_chart, cost_chart = st.columns(3)
+with hit_rate_chart:
+    st.subheader("Hit Rate")
+    st.bar_chart(dataframe, x="Algorithm", y="Hit Rate")
+with latency_chart:
+    st.subheader("Latency")
+    st.bar_chart(dataframe, x="Algorithm", y="Latency")
+with cost_chart:
+    st.subheader("Cost")
+    st.bar_chart(dataframe, x="Algorithm", y="Cost")
