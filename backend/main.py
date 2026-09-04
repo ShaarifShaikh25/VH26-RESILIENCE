@@ -2,6 +2,7 @@
 from fastapi import FastAPI, HTTPException, Query
 
 from backend.dashboard_service import DashboardService
+from backend.benchmark.compare import run_comparison
 from backend.metrics.logger import recent_decisions
 
 app = FastAPI(title="Adaptive Cache Management System", version="1.0.0")
@@ -54,3 +55,15 @@ def simulate_workload(workload: str, requests: int = Query(50, ge=1, le=500)) ->
     if workload not in {"steady", "spike", "gradual"}:
         raise HTTPException(status_code=400, detail="Unknown workload")
     return system.simulate_workload(workload, requests)
+
+
+@app.post("/benchmark/{workload}")
+def benchmark_workload(
+    workload: str,
+    requests: int = Query(50, ge=1, le=500),
+    capacity: int = Query(5, ge=1, le=500),
+) -> list[dict]:
+    """Compare all cache policies through the backend benchmark service."""
+    if workload not in {"steady", "spike", "gradual"}:
+        raise HTTPException(status_code=400, detail="Unknown workload")
+    return run_comparison(workload, requests, capacity)

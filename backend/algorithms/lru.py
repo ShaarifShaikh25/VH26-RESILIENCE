@@ -6,6 +6,8 @@ from backend.cache.cache_object import CacheObject
 
 
 class LRUCache(BaseCache):
+    algorithm_name = "LRU"
+
     def __init__(self, capacity: int) -> None:
         super().__init__(capacity)
         self.items: OrderedDict[str, CacheObject] = OrderedDict()
@@ -21,13 +23,12 @@ class LRUCache(BaseCache):
             item = self.items[key]
             item.value = value
             item.cost = 0.0 if cost is None else float(cost)
-            item.size = max(len(json.dumps(value, default=str)), 1)
+            item.size = self._value_size(value)
             item.touch()
             self.items.move_to_end(key)
             return None
-        victim = self.evict() if len(self.items) >= self.capacity else None
         self.items[key] = self._cache_object(key, value, cost)
-        return victim
+        return self.evict() if len(self.items) > self.capacity else None
 
     def evict(self) -> str | None:
         if not self.items:

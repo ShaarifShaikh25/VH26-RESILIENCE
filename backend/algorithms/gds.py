@@ -5,10 +5,13 @@ from backend.cache.cache_object import CacheObject
 
 
 class GDSCache(BaseCache):
+    algorithm_name = "GDS"
+
     def __init__(self, capacity: int) -> None:
         super().__init__(capacity)
         self.L = 0.0
         self.scores: dict[str, float] = {}
+        self.last_evicted_score: float | None = None
 
     def _gds_score(self, item: CacheObject) -> float:
         return item.cost / max(item.size, 1) + self.L
@@ -18,20 +21,20 @@ class GDSCache(BaseCache):
             item = self.items[key]
             item.value = value
             item.cost = 0.0 if cost is None else float(cost)
-            item.size = max(len(json.dumps(value, default=str)), 1)
+            item.size = self._value_size(value)
             item.touch()                          # preserve frequency, update last_accessed
             self.scores[key] = self._gds_score(item)
             return None
-        victim = self.evict() if len(self.items) >= self.capacity else None
         item = self._cache_object(key, value, cost)
         self.items[key] = item
         self.scores[key] = self._gds_score(item)
-        return victim
+        return self.evict() if len(self.items) > self.capacity else None
 
     def evict(self) -> str | None:
         if not self.items:
             return None
         victim = min(self.scores, key=self.scores.get)
-        self.L = self.scores.pop(victim)          # L advances to evicted item's score
+        self.last_evicted_score = self.scores.pop(victim)
+        self.L = self.last_evicted_score          # L advances to evicted item's score
         del self.items[victim]
         return victim

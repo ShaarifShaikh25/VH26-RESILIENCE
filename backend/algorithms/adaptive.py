@@ -1,61 +1,47 @@
-"""A cost-aware cache policy combining frequency and recency."""
-from time import time
+"""Adaptive cache policy using the configured multi-factor scorer."""
+import json
+
+from backend.algorithms.base import BaseCache
+from backend.cache.cache_object import CacheObject
 
 
-class AdaptiveCache:
-    """Keep high-frequency, recently used, and expensive values in cache."""
+class AdaptiveCache(BaseCache):
+    """Keep the entries with the highest dynamically computed score."""
 
-    SPIKE_FREQUENCY_THRESHOLD = 2.0
+    algorithm_name = "ADAPTIVE"
 
-    def __init__(self, capacity):
-        self.capacity = capacity
-        self.cache = {}
-        self.meta = {}
+    def __init__(self, capacity: int, scorer=None) -> None:
+        super().__init__(capacity)
+        self.scorer = scorer
+        self.last_evicted_score: float | None = None
 
     def get(self, key):
-        if key in self.cache:
-            self.meta[key]["frequency"] += 1
-            self.meta[key]["last_access"] = time()
-            return self.cache[key]
-        return None
+        return super().get(key)
 
-    def score(self, key):
-        """Return the retention value using workload-aware component weights."""
-        metadata = self.meta[key]
-        average_frequency = self.average_frequency()
-        if average_frequency >= self.SPIKE_FREQUENCY_THRESHOLD:
-            frequency_weight, cost_weight, recency_weight = 0.6, 0.3, 0.1
-        else:
-            frequency_weight, cost_weight, recency_weight = 0.4, 0.4, 0.2
+    def set_scorer(self, scorer) -> None:
+        self.scorer = scorer
 
-        freq_score = metadata["frequency"]
-        recency_score = 1 / (1 + time() - metadata["last_access"])
-        cost_score = metadata["cost"]
-        return (frequency_weight * freq_score
-                + cost_weight * cost_score
-                + recency_weight * recency_score)
+    def _score(self, item: CacheObject) -> float:
+        if self.scorer is None:
+            raise RuntimeError("AdaptiveCache requires a scoring engine")
+        return self.scorer.score(item)
 
-    def average_frequency(self):
-        """Return cache-wide access frequency used to detect a traffic spike."""
-        if not self.meta:
-            return 0.0
-        return sum(item["frequency"] for item in self.meta.values()) / len(self.meta)
-
-    def put(self, key, value, cost=None):
-        if key in self.cache:
-            self.meta[key]["frequency"] += 1
-            self.meta[key]["last_access"] = time()
+    def put(self, key, value, cost=None) -> str | None:
+        if key in self.items:
+            item = self.items[key]
+            item.value = value
+            item.cost = 0.0 if cost is None else float(cost)
+            item.touch()
+            item.size = self._value_size(value)
             return
 
-        if len(self.cache) >= self.capacity:
-            # evict lowest score
-            worst_key = min(self.cache.keys(), key=lambda k: self.score(k))
-            del self.cache[worst_key]
-            del self.meta[worst_key]
+        self.items[key] = self._cache_object(key, value, cost)
+        return self.evict() if len(self.items) > self.capacity else None
 
-        self.cache[key] = value
-        self.meta[key] = {
-            "frequency": 1,
-            "last_access": time(),
-            "cost": 0.0 if cost is None else float(cost),
-        }
+    def evict(self) -> str | None:
+        if not self.items:
+            return None
+        victim = min(self.items.values(), key=self._score)
+        self.last_evicted_score = self._score(victim)
+        del self.items[victim.key]
+        return victim.key

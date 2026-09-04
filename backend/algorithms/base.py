@@ -6,6 +6,8 @@ from backend.cache.cache_object import CacheObject
 
 class BaseCache(ABC):
     def __init__(self, capacity: int) -> None:
+        if capacity < 1:
+            raise ValueError("capacity must be at least 1")
         self.capacity = capacity
         self.items: dict[str, CacheObject] = {}
 
@@ -25,9 +27,16 @@ class BaseCache(ABC):
         return CacheObject(
             key=key,
             value=value,
-            size=max(len(json.dumps(value, default=str)), 1),
+            size=BaseCache._value_size(value),
             cost=0.0 if cost is None else float(cost),
         )
+
+    @staticmethod
+    def _value_size(value) -> int:
+        declared_size = value.get("size") if isinstance(value, dict) else None
+        if isinstance(declared_size, int) and declared_size > 0:
+            return declared_size
+        return max(len(json.dumps(value, default=str)), 1)
 
     @abstractmethod
     def evict(self) -> str | None:

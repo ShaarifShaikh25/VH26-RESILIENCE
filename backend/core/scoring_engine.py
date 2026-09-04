@@ -10,8 +10,8 @@ class ScoringEngine:
     def adjust_for_workload(self, workload: str) -> None:
         """Favor frequency in steady traffic and recency during spikes."""
         presets = {
-            "steady": {"frequency": .45, "recency": .25, "cost": .20, "size": .10},
-            "spike": {"frequency": .20, "recency": .50, "cost": .20, "size": .10},
+            "steady": {"frequency": .20, "recency": .60, "cost": .10, "size": .10},
+            "spike": {"frequency": .60, "recency": .20, "cost": .10, "size": .10},
             "gradual": {"frequency": .30, "recency": .35, "cost": .25, "size": .10},
         }
         self.weights = presets.get(workload, self.weights)

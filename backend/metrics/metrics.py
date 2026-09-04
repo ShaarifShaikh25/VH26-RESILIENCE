@@ -29,7 +29,8 @@ class Metrics:
         self.history = self.history[-500:]
 
     def snapshot(self) -> dict[str, float]:
-        return {"hit_rate": self.hits / self.requests if self.requests else 0.0,
+        return {"hits": self.hits, "misses": self.misses,
+            "hit_rate": self.hits / self.requests if self.requests else 0.0,
                 "average_latency_ms": self.total_latency_ms / self.requests if self.requests else 0.0,
                 "cost": self.backend_cost, "requests": self.requests}
 

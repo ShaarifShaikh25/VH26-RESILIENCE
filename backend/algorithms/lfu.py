@@ -5,6 +5,8 @@ from backend.cache.cache_object import CacheObject
 
 
 class LFUCache(BaseCache):
+    algorithm_name = "LFU"
+
     def get(self, key: str) -> CacheObject | None:
         return super().get(key)  # touch() increments frequency and last_accessed
 
@@ -13,12 +15,11 @@ class LFUCache(BaseCache):
             item = self.items[key]
             item.value = value
             item.cost = 0.0 if cost is None else float(cost)
-            item.size = max(len(json.dumps(value, default=str)), 1)
+            item.size = self._value_size(value)
             item.touch()   # preserve and increment existing frequency
             return None
-        victim = self.evict() if len(self.items) >= self.capacity else None
         self.items[key] = self._cache_object(key, value, cost)
-        return victim
+        return self.evict() if len(self.items) > self.capacity else None
 
     def evict(self) -> str | None:
         if not self.items:
