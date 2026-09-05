@@ -1,0 +1,58 @@
+.indicator {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  z-index: 20;
+  pointer-events: none;
+  padding: 10px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+/* Horizontal positioning */
+.left  { left: 5vw; }
+.right { right: 5vw; align-items: flex-end; }
+
+/* Vertical positioning — clear of text and robot */
+.top    { top: 12vh; }
+.bottom { top: 22vh; } /* Repositioned from bottom so it never covers the description text */
+
+.label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.18em;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
+.value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  color: #111827;
+  text-transform: uppercase;
+}
+
+.dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #dc2626;
+  box-shadow: 0 0 6px rgba(220, 38, 38, 0.6);
+  animation: blink 2.8s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 85%, 100% { opacity: 1; }
+  42%            { opacity: 0.25; }
+}

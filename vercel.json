@@ -1,0 +1,59 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/dist",
+  "rewrites": [
+    {
+      "source": "/docs",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/openapi.json",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/data/:path*",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/metrics/:path*",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/metrics",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/cache/:path*",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/decisions/:path*",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/decisions",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/algorithm/:path*",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/simulate/:path*",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/benchmark/:path*",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

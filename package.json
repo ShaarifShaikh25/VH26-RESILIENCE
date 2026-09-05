@@ -1,0 +1,11 @@
+{
+  "name": "vh26-resilience",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Adaptive Cache Management System with React 3D Interface and FastAPI Backend",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "dev": "cd frontend && npm run dev",
+    "dev:backend": "python -m uvicorn backend.main:app --reload"
+  }
+}

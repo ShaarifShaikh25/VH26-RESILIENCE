@@ -5,3 +5,10 @@ __pycache__/
 .streamlit/
 data/kaggle/2019-Nov.csv
 data/kaggle/2019-Oct.csv
+
+# Node & Frontend Build Artifacts
+node_modules/
+*/node_modules/
+dist/
+*/dist/
+.vercel/

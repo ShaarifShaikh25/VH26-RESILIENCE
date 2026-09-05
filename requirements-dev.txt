@@ -1,0 +1,4 @@
+-r requirements.txt
+streamlit>=1.30,<2.0
+kaggle>=1.6,<2.0
+-e .
