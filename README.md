@@ -68,9 +68,35 @@ GET /simulate/kaggle?requests=500
 
 For local testing or an already-downloaded file, pass `csv_path`. The loader maps views, carts, and purchases to costs `1`, `5`, and `10`, respectively, and keeps the generated response size in cache metadata.
 
+## Frontend (3D Cybernetic Interface)
+
+The interactive 3D WebGL landing page is located in `frontend/` and built with React 18, Vite 5, React Three Fiber (Three.js), and Framer Motion.
+
+```bash
+# Run frontend dev server
+npm run dev
+
+# Or build for production
+npm run build
+```
+
+## Vercel Deployment
+
+This repository is configured to deploy both the 3D frontend and the FastAPI serverless API in a unified Vercel deployment:
+
+1. Go to [vercel.com/new](https://vercel.com/new).
+2. Import repository: `ShaarifShaikh25/VH26-RESILIENCE`.
+3. Vercel automatically reads `vercel.json` and builds:
+   - **Frontend static bundle** from `frontend/` -> served at `/`
+   - **FastAPI serverless function** from `api/index.py` -> served at `/docs`, `/metrics`, `/api/*`, `/data/*`, etc.
+4. Click **Deploy**.
+
 ## Layout
 
+- `api/index.py`: Serverless ASGI entry point for Vercel deployment.
+- `frontend/`: React + Vite + Three.js 3D Cybernetic interface and team telemetry.
 - `backend/cache`: Redis adapter, cache metadata, and unified cache manager.
 - `backend/algorithms`: LRU, LFU, and GDS eviction implementations.
 - `backend/core`: workload-aware scoring and retain/evict/refresh decisions.
 - `backend/workloads`, `metrics`, and `benchmark`: simulation, reporting, and comparison tools.
+- `dashboard`: Streamlit observability control room.
