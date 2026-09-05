@@ -3,3 +3,5 @@ __pycache__/
 .venv/
 .env
 .streamlit/
+.data/kaggle/2019-Nov.csv
+.data/kaggle/2019-Oct.csv
