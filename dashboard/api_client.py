@@ -49,3 +49,8 @@ class DashboardAPI:
             f"/benchmark/{workload}",
             params={"requests": requests_count, "capacity": capacity},
         )
+
+    def simulate_kaggle(self, requests_count: int = 50) -> dict:
+        return self._request(
+            "GET", "/simulate/kaggle", params={"requests": requests_count}
+        )

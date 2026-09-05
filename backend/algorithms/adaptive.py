@@ -1,5 +1,6 @@
 """Adaptive cache policy using the configured multi-factor scorer."""
 import json
+import random
 
 from backend.algorithms.base import BaseCache
 from backend.cache.cache_object import CacheObject
@@ -14,6 +15,9 @@ class AdaptiveCache(BaseCache):
         super().__init__(capacity)
         self.scorer = scorer
         self.last_evicted_score: float | None = None
+        self.exploration_rate = 0.20
+        self.exploration_count = 0
+        self.exploitation_count = 0
 
     def get(self, key):
         return super().get(key)
@@ -25,6 +29,13 @@ class AdaptiveCache(BaseCache):
         if self.scorer is None:
             raise RuntimeError("AdaptiveCache requires a scoring engine")
         return self.scorer.score(item)
+
+    @property
+    def warmup_phase(self) -> bool:
+        return self.scorer is None or self.scorer.training_samples < 100
+
+    def _retention_score(self, item: CacheObject) -> float:
+        return self._score(item) * max(item.cost, 0.01) / max(item.size, 1)
 
     def put(self, key, value, cost=None) -> str | None:
         if key in self.items:
@@ -41,7 +52,17 @@ class AdaptiveCache(BaseCache):
     def evict(self) -> str | None:
         if not self.items:
             return None
-        victim = min(self.items.values(), key=self._score)
+        candidates = list(self.items.values())
+        if self.warmup_phase:
+            victim = min(candidates, key=lambda item: item.last_accessed)
+        elif len(candidates) > 1 and random.random() < self.exploration_rate:
+            self.exploration_count += 1
+            ranked = sorted(candidates, key=self._retention_score)
+            bottom_count = max(1, int(len(ranked) * 0.30))
+            victim = random.choice(ranked[:bottom_count])
+        else:
+            self.exploitation_count += 1
+            victim = min(candidates, key=self._retention_score)
         self.last_evicted_score = self._score(victim)
         del self.items[victim.key]
         return victim.key

@@ -22,7 +22,8 @@ class AdaptiveCacheManager:
         self.algorithm_name = self.policy.algorithm_name
         self.algorithm = self.algorithm_name.lower()
         self.redis = RedisClient(settings.redis_url)
-        self.scorer = ScoringEngine(settings.weights)
+        self.scorer = ScoringEngine()
+        self.last_prediction_score: float | None = None
         self.decider = DecisionEngine(self.scorer, settings.decision_threshold)
         if self.algorithm == "adaptive":
             self.policy.set_scorer(self.scorer)
@@ -33,12 +34,16 @@ class AdaptiveCacheManager:
 
     def _score_for(self, item) -> float | None:
         if self.algorithm == "adaptive":
-            return self.scorer.score(item)
+            self.last_prediction_score = self.scorer.score(item)
+            return self.last_prediction_score
         if self.algorithm == "gds":
             return self.policy.scores[item.key]
         return None
 
     def get(self, key: str):
+        if self.algorithm == "adaptive":
+            self.last_prediction_score = None
+            self.scorer.begin_request()
         item = self.policy.get(key)
         if not item:
             log_decision(key, "miss", self.algorithm_name)
@@ -46,9 +51,12 @@ class AdaptiveCacheManager:
         value = self.redis.get(key)
         score = self._score_for(item)
         log_decision(key, "hit", self.algorithm_name, score)
+        if self.algorithm == "adaptive":
+            self.scorer.track_reuse(key, item)
         return item.value if value is None else value
 
     def put(self, key: str, value, cost: float = 1.0) -> None:
+        was_present = key in self.policy.items
         evicted = self.policy.put(key, value, cost)
         if evicted:
             evicted_score = getattr(self.policy, "last_evicted_score", None)
@@ -65,6 +73,34 @@ class AdaptiveCacheManager:
         item = self.policy.items.get(key)
         score = self._score_for(item) if item else None
         log_decision(key, decision, self.algorithm_name, score)
+        if self.algorithm == "adaptive" and not was_present:
+            tracking_item = item or self.policy._cache_object(key, value, cost)
+            self.scorer.track_new_item(tracking_item)
+
+    def learning_metrics(self) -> dict:
+        if self.algorithm != "adaptive":
+            return {
+                "training_samples": 0, "pending_labels": 0,
+                "average_prediction_score": 0.0,
+                "ml_prediction_accuracy": 0.0,
+                "reuse_prediction_quality": 0.0,
+                "exploration_count": 0,
+                "exploitation_count": 0,
+                "warmup_phase": False,
+                "model_confidence": 0.0,
+                "exploration_ratio": 0.0,
+            }
+        return {
+            **self.scorer.learning_metrics(),
+            "exploration_count": self.policy.exploration_count,
+            "exploitation_count": self.policy.exploitation_count,
+            "warmup_phase": self.policy.warmup_phase,
+            "exploration_ratio": (
+                self.policy.exploration_count / (
+                    self.policy.exploration_count + self.policy.exploitation_count
+                ) if self.policy.exploration_count + self.policy.exploitation_count else 0.0
+            ),
+        }
 
     def decide(self, key: str) -> str | None:
         item = self.policy.items.get(key)
@@ -82,5 +118,6 @@ class AdaptiveCacheManager:
                 "last_access": item.last_accessed, "cost": item.cost,
                 "size": item.size, "score": score,
                 "decision": decision,
+                "value": item.value,
             })
         return state

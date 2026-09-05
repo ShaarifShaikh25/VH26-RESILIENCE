@@ -13,8 +13,18 @@ class CacheObject:
     frequency: int = 1
     created_at: float = field(default_factory=time)
     last_accessed: float = field(default_factory=time)
+    previous_accessed: float | None = None
+    access_times: list[float] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if not self.access_times:
+            self.access_times.append(self.created_at)
 
     def touch(self) -> None:
         """Record an access to this object."""
+        now = time()
         self.frequency += 1
-        self.last_accessed = time()
+        self.previous_accessed = self.last_accessed
+        self.last_accessed = now
+        self.access_times.append(now)
+        self.access_times = self.access_times[-100:]

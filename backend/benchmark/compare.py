@@ -10,19 +10,28 @@ HIT_LATENCY_MS = 1.0
 MISS_LATENCY_MS = 10.0
 
 
-def run(algorithm: str, workload: list[str], workload_type: str, capacity: int) -> dict:
-    """Measure one fresh cache instance against a shared workload."""
+def _send_request(cache, key: str, workload_type: str, metrics: Metrics) -> None:
+    value = cache.get(key)
+    hit, cost = value is not None, 0.0
+    if not hit:
+        value, cost = fetch_data(key)
+        cache.put(key, value, cost)
+    metrics.record(hit, HIT_LATENCY_MS if hit else MISS_LATENCY_MS, cost)
+
+
+def run(algorithm: str, workload: list[str], workload_type: str, capacity: int,
+        warmup_requests: int = 1000) -> dict:
+    """Warm each policy before measuring the requested workload."""
     cache, metrics = AdaptiveCacheManager(algorithm, capacity), Metrics()
     cache.set_workload(workload_type)
+    warmup = (workload * ((warmup_requests + len(workload) - 1) // len(workload)))[:warmup_requests]
+    for key in warmup:
+        _send_request(cache, key, workload_type, Metrics())
+    metrics = Metrics()
     for key in workload:
-        value = cache.get(key)
-        hit, cost = value is not None, 0.0
-        if not hit:
-            value, cost = fetch_data(key)
-            cache.put(key, value, cost)
-        latency = HIT_LATENCY_MS if hit else MISS_LATENCY_MS
-        metrics.record(hit, latency, cost)
-    return metrics.snapshot()
+        _send_request(cache, key, workload_type, metrics)
+    return {**metrics.snapshot(), "warmup_phase": cache.learning_metrics().get("warmup_phase", False),
+            "training_samples": cache.learning_metrics().get("training_samples", 0)}
 
 
 def run_comparison(workload_type: str = "spike", requests: int = 200,

@@ -52,6 +52,22 @@ The dashboard runs a selected `steady`, `spike`, or `gradual` workload through t
 
 The FastAPI service exposes the same observability data at `/metrics`, `/metrics/history`, `/cache/state`, and `/decisions`; use `POST /simulate/{workload}` to generate traffic through the API session.
 
+## Kaggle workload
+
+Install the Kaggle client and place the downloaded API token at `~/.kaggle/kaggle.json`:
+
+```bash
+pip install kaggle
+```
+
+The endpoint downloads the e-commerce behavior dataset on first use, extracts the relevant event columns, sorts events chronologically, and replays product requests through the active cache:
+
+```text
+GET /simulate/kaggle?requests=500
+```
+
+For local testing or an already-downloaded file, pass `csv_path`. The loader maps views, carts, and purchases to costs `1`, `5`, and `10`, respectively, and keeps the generated response size in cache metadata.
+
 ## Layout
 
 - `backend/cache`: Redis adapter, cache metadata, and unified cache manager.

@@ -6,8 +6,13 @@ adaptive_cache_system.egg-info/dependency_links.txt
 adaptive_cache_system.egg-info/requires.txt
 adaptive_cache_system.egg-info/top_level.txt
 backend/__init__.py
+backend/cache.py
 backend/config.py
+backend/dashboard_service.py
+backend/decision_engine.py
 backend/main.py
+backend/scoring.py
+backend/simulator.py
 backend/algorithms/__init__.py
 backend/algorithms/adaptive.py
 backend/algorithms/base.py

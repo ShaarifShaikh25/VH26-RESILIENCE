@@ -1,38 +1,39 @@
 import time
 
 from backend.cache.cache_manager import AdaptiveCacheManager
+from backend.workloads.backend_simulator import fetch_data
 
 
 ALGORITHMS = ["lru", "lfu", "gds", "adaptive"]
 
 ACCESS_PATTERNS = {
     "steady": [
-        0, 1, 2, 3, 4,
-        0, 1, 2, 5,
-        0, 1, 6,
-        0, 1, 2, 7,
-        0, 1, 8,
-        0, 1, 2, 9,
-        0, 1, 2, 3, 4, 5,
+        "user:1001", "product:2001", "api:/users/1001", "product:2002", "product:2003",
+        "user:1001", "product:2001", "api:/users/1002",
+        "user:1001", "product:2001", "product:2004",
+        "user:1001", "product:2001", "api:/users/1003", "product:2005",
+        "user:1001", "product:2001", "product:2006",
+        "user:1001", "product:2001", "api:/users/1004", "product:2007",
+        "user:1001", "product:2001", "api:/users/1001", "product:2002", "product:2003",
     ],
 
     "spike": [
-        0, 1, 2, 3, 4,
-        1, 1, 1, 1,
-        2, 2, 2,
-        1, 1, 1,
-        5, 6, 7,
-        1, 1, 1, 2, 2,
-        1, 1, 1,
+        "user:1001", "product:2001", "api:/users/1001", "product:2002", "product:2003",
+        "product:2001", "product:2001", "product:2001", "product:2001",
+        "api:/users/1001", "api:/users/1001", "api:/users/1001",
+        "product:2001", "product:2001", "product:2001",
+        "product:2010", "api:/users/1010", "product:2011",
+        "product:2001", "product:2001", "product:2001", "api:/users/1001", "api:/users/1001",
+        "product:2001", "product:2001", "product:2001",
     ],
 
     "gradual": [
-        0, 1, 2,
-        0, 1, 2, 3,
-        0, 1, 2, 3, 4,
-        0, 1, 2, 3, 4, 5,
-        0, 1, 2, 3, 4, 5, 6,
-        0, 1, 2, 3, 4, 5, 6, 7,
+        "user:1001", "product:2001", "api:/users/1001",
+        "user:1001", "product:2001", "api:/users/1001", "product:2002",
+        "user:1001", "product:2001", "api:/users/1001", "product:2002", "product:2003",
+        "user:1001", "product:2001", "api:/users/1001", "product:2002", "product:2003", "product:2004",
+        "user:1001", "product:2001", "api:/users/1001", "product:2002", "product:2003", "product:2004", "api:/users/1002",
+        "user:1001", "product:2001", "api:/users/1001", "product:2002", "product:2003", "product:2004", "api:/users/1002", "product:2005",
     ],
 }
 
@@ -44,20 +45,21 @@ def run_benchmark(algorithm, workload):
         cache.set_workload(workload)
 
     # Initial population
-    for i in range(5):
-        cache.put(f"key{i}", {"value": i})
+    initial_keys = ["user:1001", "product:2001", "api:/users/1001", "product:2002", "product:2003"]
+    for key in initial_keys:
+        value, cost = fetch_data(key)
+        cache.put(key, value, cost)
 
     hits = 0
     misses = 0
 
     start = time.perf_counter()
 
-    for key_id in ACCESS_PATTERNS[workload]:
-        key = f"key{key_id}"
-
+    for key in ACCESS_PATTERNS[workload]:
         if cache.get(key) is None:
             misses += 1
-            cache.put(key, {"value": key_id})
+            value, cost = fetch_data(key)
+            cache.put(key, value, cost)
         else:
             hits += 1
 

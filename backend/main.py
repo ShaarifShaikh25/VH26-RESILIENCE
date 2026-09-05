@@ -1,12 +1,18 @@
 """FastAPI entry point exposing cache data and dashboard observability APIs."""
+import logging
+
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import JSONResponse
 
 from backend.dashboard_service import DashboardService
 from backend.benchmark.compare import run_comparison
 from backend.metrics.logger import recent_decisions
 
+logger = logging.getLogger("adaptive_cache.api")
+
 app = FastAPI(title="Adaptive Cache Management System", version="1.0.0")
 system = DashboardService()
+logger.info("Registered FastAPI route: GET /simulate/kaggle")
 
 
 @app.get("/data/{key}")
@@ -55,6 +61,31 @@ def simulate_workload(workload: str, requests: int = Query(50, ge=1, le=500)) ->
     if workload not in {"steady", "spike", "gradual"}:
         raise HTTPException(status_code=400, detail="Unknown workload")
     return system.simulate_workload(workload, requests)
+
+
+@app.get("/simulate/kaggle")
+def simulate_kaggle(
+    requests: int = Query(50, ge=1, le=10000),
+    csv_path: str | None = Query(None),
+) -> dict:
+    """Replay chronological Kaggle e-commerce events through the active cache."""
+    try:
+        return system.simulate_kaggle(requests, csv_path)
+    except (FileNotFoundError, RuntimeError, ValueError) as exc:
+        logger.warning("Kaggle simulation unavailable: %s", exc)
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "error",
+                "message": "Kaggle dataset is not configured",
+                "setup_required": [
+                    "Place kaggle.json in ~/.kaggle or set KAGGLE_CONFIG_DIR",
+                    "Install the Kaggle client with: pip install kaggle",
+                    "Or pass csv_path to an existing Kaggle CSV",
+                ],
+                "detail": str(exc),
+            },
+        )
 
 
 @app.post("/benchmark/{workload}")

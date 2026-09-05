@@ -1,0 +1,741 @@
+==================================================
+1. ML MODEL
+==================================================
+
+- ML library: River.
+- Model requested by code: AdaptiveRandomForestRegressor.
+- Actual installed compatibility model: The current environment does not expose river.ensemble.AdaptiveRandomForestRegressor; the import falls back to river.forest.ARFRegressor under that alias.
+- Model creation: backend/core/scoring_engine.py, inside ScoringEngine.__init__().
+- Prediction method: ScoringEngine.score().
+- Training method: ScoringEngine._learn().
+- Learning type: Online learning.
+- River methods:
+  - predict_one(features) produces the current regression prediction.
+  - learn_one(features, reuse_value) updates the forest with one labeled observation.
+- Configuration:
+  - n_models=10
+  - grace_period=10
+  - leaf_prediction="adaptive"
+  - seed=42
+- Learning rate: No explicit learning rate is configured. ARFRegressor does not use an SGD learning-rate parameter here.
+- Warmup/fallback:
+  - warmup_phase is true when training_samples < 100.
+  - During warmup, eviction uses the oldest last_accessed item, which is LRU-like.
+  - After 100 training samples, ML-based eviction is activated.
+- learn_one is called only after a deferred observation expires.
+- predict_one is called during scoring, eviction, cache state inspection, and insertion tracking.
+- The score() method currently calls predict_one() twice. The first result is discarded; the second result is used.
+
+==================================================
+2. MAIN ML FILES
+==================================================
+
+File: backend/core/scoring_engine.py
+Purpose: Owns the online River model, feature extraction, pending reuse observations, labels, predictions, and learning metrics.
+Important class/function: ScoringEngine, features(), score(), begin_request(), track_new_item(), track_reuse(), _learn().
+Role in ML pipeline: Central ML component.
+
+File: backend/algorithms/adaptive.py
+Purpose: Implements adaptive cache eviction.
+Important class/function: AdaptiveCache, _retention_score(), evict().
+Role in ML pipeline: Converts model predictions into eviction rankings, warmup fallback, exploration, and exploitation.
+
+File: backend/cache/cache_manager.py
+Purpose: Coordinates policies, Redis, scoring, decisions, logging, and training hooks.
+Important class/function: AdaptiveCacheManager, get(), put(), _score_for(), learning_metrics().
+Role in ML pipeline: Connects requests to prediction and deferred training.
+
+File: backend/cache/cache_object.py
+Purpose: Stores cache value and access metadata.
+Important class/function: CacheObject, touch().
+Role in ML pipeline: Supplies frequency, timestamps, previous access, and access history.
+
+File: backend/config.py
+Purpose: Loads environment configuration.
+Important class/function: Settings.
+Role in ML pipeline: Provides cache capacity, Redis URL, algorithm selection, and decision threshold. It contains no ML model configuration.
+
+File: backend/metrics/metrics.py
+Purpose: Tracks request-level hits, misses, latency, cost, prediction score, and training samples.
+Important class/function: Metrics.record(), snapshot(), time_series().
+Role in ML pipeline: Observability only. It does not train the model.
+
+File: backend/dashboard_service.py
+Purpose: Runs API requests and workload simulations.
+Important class/function: DashboardService.request(), request_event(), simulate_workload(), simulate_kaggle().
+Role in ML pipeline: Feeds synthetic and Kaggle requests through the cache manager.
+
+File: dashboard/app.py
+Purpose: Streamlit observability interface.
+Important class/function: Dashboard execution code and score_explanation().
+Role in ML pipeline: Displays metrics, scores, decisions, cache state, and history. It does not train the model.
+
+File: backend/workloads/kaggle_loader.py
+Purpose: Downloads, loads, filters, sorts, and converts Kaggle rows into cache requests.
+Important class/function: load_events(), generate_requests().
+Role in ML pipeline: Kaggle input adapter.
+
+File: backend/benchmark/compare.py
+Purpose: Compares LRU, LFU, GDS, and Adaptive.
+Important class/function: run(), run_comparison().
+Role in ML pipeline: Warms each policy and evaluates post-warmup performance.
+
+Other ML-related files:
+
+File: backend/core/decision_engine.py
+Uses ScoringEngine.score() and a configured threshold to produce retain, evict, or refresh.
+
+File: backend/metrics/logger.py
+Stores prediction scores and decision events.
+
+File: backend/scoring.py
+Contains an older rule-based calculate_score() function. It is not used by the current AdaptiveCacheManager ML path.
+
+==================================================
+3. ML FEATURES
+==================================================
+
+Feature: frequency_norm
+What it represents: Current item access frequency.
+Where it comes from: CacheObject.frequency, incremented by CacheObject.touch().
+Normalization: frequency / max_frequency_seen, clamped to [0, 1]. max_frequency_seen is maintained by ScoringEngine.
+Why ML needs it: Represents repeated demand for the item.
+
+Feature: recency_norm
+What it represents: Age since the item’s last access.
+Where it comes from: time() - item.last_accessed.
+Normalization: age / 3600, clamped to [0, 1].
+Why ML needs it: Represents how stale the item is.
+
+Feature: cost_norm
+What it represents: Backend retrieval cost of the item.
+Where it comes from: CacheObject.cost.
+Normalization: cost / 10, clamped to [0, 1].
+Why ML needs it: Represents the value of preserving expensive-to-retrieve content.
+
+Feature: size_norm
+What it represents: Estimated memory size of the cached object.
+Where it comes from: CacheObject.size, generated from the payload’s declared size or serialized JSON length.
+Normalization: size / 1024, clamped to [0, 1].
+Why ML needs it: Represents memory pressure.
+
+Feature: request_rate
+What it represents: Recent access count per 60-second window.
+Where it comes from: Counts item.access_times entries newer than now - 60.
+Normalization: recent_accesses / 60, clamped to [0, 1].
+Why ML needs it: Represents recent demand intensity.
+
+Feature: time_since_last_access
+What it represents: Time elapsed since the last access.
+Where it comes from: Same age value as recency_norm.
+Normalization: age / 3600, clamped to [0, 1].
+Why ML needs it: Represents item staleness. This duplicates recency_norm conceptually.
+
+Feature: access_velocity
+What it represents: Number of accesses in the latest 10-second window.
+Where it comes from: Counts item.access_times entries newer than now - 10.
+Normalization: velocity_count / 10, clamped to [0, 1].
+Why ML needs it: Represents short-term demand acceleration.
+
+Feature: burst_indicator
+What it represents: Whether at least three accesses occurred in the latest 10-second window.
+Where it comes from: Derived from velocity_count.
+Encoding: 1.0 if velocity_count >= 3, otherwise 0.0.
+Why ML needs it: Represents burst traffic.
+
+Feature: rolling_frequency
+What it represents: Number of retained access records among the last 10 access timestamps.
+Where it comes from: item.access_times[-10:].
+Normalization: len(last_10_accesses) / 10, clamped to [0, 1].
+Why ML needs it: Represents recent rolling popularity.
+
+Feature: reuse_gap
+What it represents: Time between the two most recent accesses.
+Where it comes from: item.last_accessed - item.previous_accessed.
+If no previous access exists, it uses 3600 seconds.
+Normalization: reuse_gap / 3600, clamped to [0, 1].
+Why ML needs it: Represents how quickly the item is reused.
+
+Feature: event_type
+What it represents: Source event type associated with the cached value.
+Where it comes from: item.value["event"].
+Encoding: view=0, cart=1, purchase=2.
+Further normalization: None. It is not scaled to [0, 1].
+Why ML needs it: Represents business importance of the request.
+
+Current feature count: 11.
+
+==================================================
+4. DATA FLOW
+==================================================
+
+Request
+↓
+FastAPI
+↓
+DashboardService
+↓
+AdaptiveCacheManager
+↓
+Cache HIT / MISS
+↓
+CacheObject metadata update
+↓
+Feature extraction
+↓
+ARF prediction
+↓
+Cache decision / eviction ranking
+↓
+Future request outcomes
+↓
+Deferred reuse-value label
+↓
+River learn_one
+↓
+Updated model
+
+Request entry:
+
+FastAPI routes are defined in backend/main.py:
+- /data/{key}
+- /simulate/{workload}
+- /simulate/kaggle
+
+Normal request path:
+FastAPI /data/{key}
+↓
+DashboardService.request()
+↓
+AdaptiveCacheManager.get()
+
+Cache lookup:
+
+AdaptiveCacheManager.get():
+1. Clears the previous prediction score.
+2. Calls scorer.begin_request().
+3. Calls policy.get(key).
+4. The policy returns a CacheObject on hit.
+5. BaseCache.get() calls item.touch().
+6. touch() increments frequency and records timestamps.
+
+Feature extraction and prediction on a hit:
+
+AdaptiveCacheManager.get()
+↓
+_score_for(item)
+↓
+ScoringEngine.score(item)
+↓
+ScoringEngine.features(item)
+↓
+model.predict_one(features)
+
+Cache miss:
+
+1. get() logs a miss and returns None.
+2. DashboardService calls fetch_data() or uses a Kaggle-provided value.
+3. AdaptiveCacheManager.put() inserts the item.
+4. The policy may evict an item if capacity is exceeded.
+5. The inserted item is tracked as pending reuse.
+
+Eviction:
+
+AdaptiveCache.evict()
+↓
+warmup fallback OR exploration OR exploitation
+↓
+_score(item)
+↓
+ScoringEngine.score()
+
+The exploitation ranking is:
+
+retention_score = prediction_score * cost / size
+
+Future outcome:
+
+AdaptiveCacheManager.get()
+↓
+ScoringEngine.track_reuse(key, item)
+↓
+future_hits += 1
+
+The model is not trained at this point.
+
+Training:
+
+At each adaptive request, begin_request() increments request_number.
+
+When a pending observation’s expiration point is passed:
+
+ScoringEngine.begin_request()
+↓
+pending observation removed
+↓
+reuse_value calculated
+↓
+model.learn_one(features, reuse_value)
+
+==================================================
+5. WHERE DOES TRAINING DATA COME FROM?
+==================================================
+
+A. Synthetic workload
+
+Synthetic workload generation is in backend/workloads/workload_generator.py.
+
+Available workload types include:
+- steady
+- spike
+- gradual
+- realistic
+
+Steady:
+Uses a deterministic repeating list of meaningful keys such as user:1001, product:2001, api:/users/1001, and product:2002.
+
+Spike:
+Uses hot API user keys and cold product keys. Weighted random selection is generated through random.Random(seed). Hot keys receive higher selection weights and cold keys receive low weights. The fixed seed is 42, so the sequence is deterministic for the same arguments.
+
+Gradual:
+Uses staged lists of user, product, and API keys. The pattern is deterministic and repeats across the generated request count.
+
+Realistic:
+Uses stable product keys, a larger volatile product-key pool, a skewed selection using rng.random() ** 2, periodic bursts of stable keys, and phase-dependent volatile traffic. The generator is seeded with 42, so it is deterministic.
+
+Synthetic backend values:
+
+backend/workloads/backend_simulator.py returns structured JSON and a deterministic cost based on the request key:
+
+cost = random.Random(key).uniform(1.0, 10.0)
+
+The response contains id, type, data.name, data.email, data.score, and timestamp.
+
+B. Kaggle workload
+
+The loader is backend/workloads/kaggle_loader.py.
+
+Dataset:
+mkechinov/ecommerce-behavior-data-from-multi-category-store
+
+Source:
+Kaggle API using the user’s kaggle.json.
+
+Required columns:
+- event_time
+- event_type
+- product_id
+
+Optional columns:
+- user_id
+- category_id
+- category_code
+
+The loader reads only columns found in the CSV header.
+
+Each row becomes:
+key = product:{product_id}
+
+Value contains:
+- product_id
+- event
+- timestamp
+- optional user_id
+- optional category_id
+- generated size
+
+Event costs:
+- view = 1.0
+- cart = 5.0
+- purchase = 10.0
+
+Response size:
+A deterministic Blake2b hash of product_id:category_id produces a size from 128 through 1023. The generated size is also stored in the value as size.
+
+Ordering:
+load_events() sorts the loaded DataFrame by event_time using stable sorting.
+
+Important limitation:
+When max_rows is supplied, pandas reads only the first max_rows physical CSV rows before sorting. It does not read the full dataset and then select the earliest chronological rows.
+
+C. Any other source
+
+Direct API input:
+GET /data/{key}
+
+This uses the synthetic backend simulator when the key is not cached.
+
+Benchmark input:
+backend/benchmark/compare.py uses generated synthetic workloads and fetch_data().
+
+==================================================
+6. KAGGLE DATA → ML
+==================================================
+
+Example Kaggle row:
+
+event_type = view
+product_id = 1003461
+event_time = 2024-01-01T12:00:00Z
+user_id = 123
+
+↓
+
+Cache key:
+product:1003461
+
+↓
+
+Value:
+{
+    "product_id": 1003461,
+    "event": "view",
+    "timestamp": "2024-01-01T12:00:00+00:00",
+    "user_id": 123,
+    "size": <deterministic value from product_id and category_id>
+}
+
+↓
+
+Cost:
+Because event_type=view:
+
+cost = 1.0
+
+↓
+
+Size:
+The loader computes:
+
+size = 128 + blake2b(product_id:category_id) % 896
+
+↓
+
+Features:
+
+frequency_norm = 1 / max_frequency_seen
+recency_norm = current_age / 3600
+a cost_norm = 1 / 10
+size_norm = generated_size / 1024
+request_rate = recent access count / 60
+time_since_last_access = current_age / 3600
+access_velocity = recent 10-second access count / 10
+burst_indicator = 1 if at least 3 accesses in 10 seconds else 0
+rolling_frequency = retained last-10 access count / 10
+reuse_gap = 3600 for an item without a previous access
+event_type = 0.0
+
+Exact numeric values depend on runtime timestamps, prior accesses, and current cache metadata.
+
+↓
+
+ML prediction:
+
+The ARF regressor receives the feature dictionary through predict_one().
+
+The raw regression result is converted using:
+
+score = 0.02 + 0.96 * clamp(raw_prediction, 0, 1)
+
+↓
+
+Decision:
+
+- If training_samples < 100, eviction uses oldest access time.
+- Otherwise, adaptive eviction uses exploration or exploitation.
+- Exploitation uses prediction_score * cost / size.
+
+==================================================
+7. TRAINING LABEL
+==================================================
+
+The current label is not simply hit=1 and miss=0.
+
+The current target is:
+
+reuse_value = min(
+    future_hits * cost / (reuse_window * max_cost),
+    1.0
+)
+
+Current constants:
+- reuse_window = 50
+- max_cost = 10.0
+
+Therefore the target is a normalized cost-aware reuse value.
+
+Where the label is created:
+ScoringEngine._learn() in backend/core/scoring_engine.py.
+
+When it becomes available:
+After the pending request has passed its 50-request window.
+
+Pending observations store:
+- feature snapshot
+- expiration request number
+- prediction at insertion
+- future_hits = 0
+- item cost
+
+Reuse behavior:
+When the same key is hit while pending, track_reuse() does not train immediately. It increments future_hits and updates the stored features using the current item state.
+
+Label greater than zero:
+future_hits > 0.
+
+Label exactly zero:
+future_hits == 0 at expiry.
+
+Training call:
+self.model.learn_one(features, reuse_value)
+
+Important current issue:
+Positive observations update their stored features during future hits. Therefore training features can include metadata observed after the original prediction. This creates a temporal alignment and possible leakage concern.
+
+==================================================
+8. PREDICTION / SCORE
+==================================================
+
+features
+↓
+ARFRegressor.predict_one(features)
+↓
+raw regression value
+↓
+score smoothing
+↓
+cost/size retention ranking
+↓
+eviction
+
+Prediction:
+
+raw_prediction = float(self.model.predict_one(features) or 0.0)
+
+Score formula:
+
+score = 0.02 + 0.96 * min(max(raw_prediction, 0.0), 1.0)
+
+Score range:
+Approximately 0.02 through 0.98 when raw predictions are in [0, 1].
+
+Meaning:
+- Near 0.02: low predicted reuse value.
+- Near 0.98: high predicted reuse value.
+- Around 0.5: middle-value prediction.
+
+This is a smoothed regression score, not a strict classification probability.
+
+Cost/size formula:
+
+retention_score = prediction_score * cost / size
+
+The item with the lowest retention score is selected for eviction during exploitation.
+
+Exploration:
+- exploration_rate = 0.20
+- A random number is generated after warmup.
+- If it is below 0.20, exploration occurs.
+- Candidates are ranked by retention score.
+- The bottom 30% is selected.
+- One item is randomly evicted from that bottom group.
+
+Exploitation:
+If exploration does not trigger, the item with the lowest retention score is evicted.
+
+During warmup:
+The oldest item by last_accessed is evicted instead.
+
+==================================================
+9. ADAPTIVE vs LRU/LFU/GDS
+==================================================
+
+LRU:
+Uses access order and last-access information. On access, the key moves to the end. Eviction removes the first item.
+
+LFU:
+Uses frequency and last_accessed as a tie-breaker. Eviction selects the lowest-frequency, oldest item.
+
+GDS:
+Uses:
+
+cost / size + L
+
+L is the historical eviction offset.
+
+Adaptive:
+Uses:
+- normalized frequency
+- normalized recency
+- normalized cost
+- normalized size
+- request rate
+- time since last access
+- access velocity
+- burst indicator
+- rolling frequency
+- reuse gap
+- event type
+- ARF regression output
+- cost/size ranking
+- warmup fallback
+- epsilon-greedy exploration
+
+Adaptive is not implemented as an internal combination of LRU, LFU, and GDS.
+
+The policies are separate classes selected by AdaptiveCacheManager:
+
+LRU -> LRUCache
+LFU -> LFUCache
+GDS -> GDSCache
+ADAPTIVE -> AdaptiveCache
+
+The benchmark runs them separately in backend/benchmark/compare.py.
+
+Adaptive’s warmup fallback is LRU-like, but it does not internally invoke LRUCache.
+
+==================================================
+10. REAL-TIME / ONLINE LEARNING
+==================================================
+
+The system is online in memory.
+
+Does it train continuously?
+Yes, but only when labels become available.
+
+Does it update after every request?
+No. Every adaptive request advances the request counter, but training happens only when pending observations expire after 50 requests.
+
+Does it update only after labels become available?
+Yes. learn_one() is called only from _learn(), which is triggered by expiry.
+
+Does the model persist to disk?
+No. There is no model serialization or persistence code.
+
+Does it reset after server restart?
+Yes. DashboardService creates a new AdaptiveCacheManager, which creates a new ScoringEngine and new ARF model.
+
+Does it learn from Kaggle replay?
+Yes. Kaggle requests go through DashboardService.request_event() and then through the same cache-manager training hooks.
+
+Does it learn from synthetic requests?
+Yes. Synthetic /data/{key} and /simulate/{workload} requests use the same adaptive cache manager.
+
+Lifecycle:
+
+Startup
+↓
+Create ScoringEngine
+↓
+Create ARFRegressor
+↓
+Receive request
+↓
+Extract/cache metadata
+↓
+Predict when an item is scored
+↓
+Track pending observation
+↓
+Observe future hits
+↓
+Expire after 50 requests
+↓
+Compute reuse_value
+↓
+Call learn_one
+↓
+Update in-memory forest
+
+==================================================
+11. CURRENT LIMITATIONS
+==================================================
+
+Cold start problem:
+There is a fallback, but it is not a fully separate LRU policy. For the first 99 training samples, warmup_phase is true and eviction uses oldest access time. The model still produces predictions and pending observations during warmup, but those predictions do not control eviction.
+
+Insufficient training data:
+Training samples are generated per pending item, not per request. A heavily accessed item generally produces one finalized label per pending observation, not one training sample per hit.
+
+Label delay:
+The reuse window is 50 requests, so recent observations remain pending and do not immediately contribute to training.
+
+Model bias:
+The target favors high-cost reused items by construction: future_hits * cost. This can reduce cache hit rate in favor of cost efficiency.
+
+Feature update bias:
+For pending reused items, stored features are updated during future hits. Training features can reflect information observed after the original prediction.
+
+Exploration issue:
+Exploration is restricted to the bottom 30%, which is safer than fully random eviction, but it can still remove a useful item if the model underestimates it.
+
+Synthetic workload limitations:
+Synthetic traffic is deterministic and small compared with real traffic. Costs are generated from the key rather than actual backend measurements. The realistic workload is still manually generated.
+
+Kaggle replay limitations:
+- Kaggle simulation requires a CSV or Kaggle credentials.
+- max_rows is applied during CSV reading before chronological sorting.
+- The loader does not stream the full file row by row.
+- The complete dataset may be much larger than the requested sample.
+- User behavior is reduced to product-key reuse; user identity is retained in values but not used in the cache key.
+- Event payloads are replayed, but backend latency is not modeled from the original dataset.
+
+Model persistence issue:
+The ARF model is in memory only. Restarting the API discards learned trees, training sample count, pending labels, exploration counters, and prediction history.
+
+Data leakage risk:
+Potential leakage exists because pending features are updated with later access information before the label is generated.
+
+Feature leakage:
+future_hits is used for the label, not as a direct feature. However, feature snapshots can be updated during the observation window, so training feature state may include post-insertion access behavior.
+
+Benchmark fairness issue:
+- The benchmark warms every policy with the same repeated workload.
+- Warmup requests are excluded from reported metrics.
+- Adaptive is allowed to train during warmup.
+- All algorithms are evaluated on the same subsequent workload.
+- Synthetic backend costs are deterministic per key.
+- Only Adaptive has a learned model and delayed-label state.
+- Baseline policies do not have an equivalent training process.
+- The benchmark does not currently evaluate Kaggle data through run_comparison().
+- run_comparison() uses synthetic workloads only.
+- workload_type is unused inside _send_request().
+
+Additional implementation observations:
+- cache_state() invokes scoring and therefore records more prediction scores during dashboard inspection.
+- Dashboard refreshes can affect the accumulated average prediction-score metric.
+- model_confidence is a proxy equal to training_samples / 100, capped at 1.0; it is not statistical confidence.
+- ml_prediction_accuracy is based on absolute prediction error <= 0.25, not classification accuracy.
+- The legacy rule-based backend/scoring.py exists but is not part of the current adaptive ML path.
+- config.py contains decision_threshold, but that threshold controls DecisionEngine labels/logging, not adaptive eviction ranking.
+
+==================================================
+12. CURRENT STATUS
+==================================================
+
+ML library: River
+Model: AdaptiveRandomForestRegressor import alias; actual installed fallback is river.forest.ARFRegressor
+Learning type: Online streaming regression
+Training source: Synthetic requests, direct API requests, and Kaggle replay
+Number of features: 11
+Label: Normalized cost-aware reuse value
+Learning mechanism: Deferred model.learn_one(features, reuse_value) after a 50-request observation window
+Exploration: 20% epsilon exploration among the bottom 30% retention-score candidates
+Warmup: LRU-like oldest-item eviction while training_samples < 100
+Prediction output: Smoothed continuous regression score approximately in [0.02, 0.98]
+Decision mechanism: Warmup oldest-item eviction; afterward cost-aware ML retention score prediction * cost / size
+
+==================================================
+10-LINE JURY EXPLANATION
+==================================================
+
+1. The cache uses River’s adaptive random forest for online streaming prediction.
+2. It observes frequency, recency, cost, size, velocity, bursts, reuse gaps, and event type.
+3. A new cache item is tracked instead of being trained immediately.
+4. The system waits 50 future requests to observe whether that item is reused.
+5. The training target combines future reuse count with backend retrieval cost.
+6. Expensive items reused frequently receive higher learning targets.
+7. The model updates continuously with River’s learn_one method.
+8. During the first 100 labeled observations, the system uses LRU-like fallback behavior.
+9. After warmup, eviction balances ML prediction, cost, size, and restricted exploration.
+10. The model is in-memory, so learning resets whenever the API process restarts.
