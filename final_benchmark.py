@@ -52,6 +52,8 @@ def run_benchmark(algorithm, workload):
 
     hits = 0
     misses = 0
+    cache.evictions = 0
+    cache.refreshes = 0
 
     start = time.perf_counter()
 
@@ -68,51 +70,55 @@ def run_benchmark(algorithm, workload):
     total = hits + misses
     hit_rate = (hits / total) * 100 if total else 0
 
-    return hits, misses, hit_rate, elapsed_ms
+    return hits, misses, hit_rate, cache.evictions, cache.refreshes, elapsed_ms
 
 
 print()
 print("FINAL CACHE BENCHMARK")
-print("=" * 85)
+print("=" * 88)
 
 for workload in ACCESS_PATTERNS:
 
     print()
     print(f"WORKLOAD: {workload.upper()}")
-    print("-" * 85)
+    print("-" * 88)
 
     print(
-        f"{'Algorithm':<12}"
-        f"{'Hits':>10}"
-        f"{'Misses':>10}"
-        f"{'Hit Rate':>14}"
-        f"{'Time(ms)':>14}"
+        f"{'Algorithm':<10} | "
+        f"{'Hits':>6} | "
+        f"{'Misses':>6} | "
+        f"{'Hit Rate':>10} | "
+        f"{'Evictions':>9} | "
+        f"{'Refreshes':>9} | "
+        f"{'Time(ms)':>10}"
     )
 
-    print("-" * 85)
+    print("-" * 88)
 
     for algorithm in ALGORITHMS:
 
         try:
-            hits, misses, hit_rate, elapsed = run_benchmark(
+            hits, misses, hit_rate, evictions, refreshes, elapsed = run_benchmark(
                 algorithm,
                 workload,
             )
 
             print(
-                f"{algorithm.upper():<12}"
-                f"{hits:>10}"
-                f"{misses:>10}"
-                f"{hit_rate:>13.2f}%"
-                f"{elapsed:>14.2f}"
+                f"{algorithm.upper():<10} | "
+                f"{hits:>6} | "
+                f"{misses:>6} | "
+                f"{hit_rate:>9.2f}% | "
+                f"{evictions:>9} | "
+                f"{refreshes:>9} | "
+                f"{elapsed:>10.2f}"
             )
 
         except Exception as e:
             print(
-                f"{algorithm.upper():<12}"
+                f"{algorithm.upper():<10} | "
                 f"ERROR: {type(e).__name__}: {e}"
             )
 
 print()
-print("=" * 85)
+print("=" * 88)
 print("BENCHMARK COMPLETE")

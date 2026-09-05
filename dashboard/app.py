@@ -74,9 +74,28 @@ def score_explanation(item: dict) -> list[tuple[str, str, str]]:
 
 
 def event_style(row: pd.Series) -> list[str]:
-    colors = {"HIT": "background-color: #dcfce7", "MISS": "background-color: #fee2e2",
-              "EVICT": "background-color: #fef3c7"}
-    return [colors.get(str(row.get("Decision", "")), "") for _ in row]
+    decision = str(row.get("Decision", "")).upper()
+    styles = []
+    for col in row.index:
+        if col == "Decision":
+            if decision == "HIT":
+                styles.append("color: #22c55e; font-weight: 700; background-color: rgba(34, 197, 94, 0.20);")
+            elif decision == "MISS":
+                styles.append("color: #ef4444; font-weight: 700; background-color: rgba(239, 68, 68, 0.20);")
+            elif decision in ("EVICT", "EVICTED"):
+                styles.append("color: #f59e0b; font-weight: 700; background-color: rgba(245, 158, 11, 0.20);")
+            else:
+                styles.append("")
+        else:
+            if decision == "HIT":
+                styles.append("background-color: rgba(34, 197, 94, 0.06);")
+            elif decision == "MISS":
+                styles.append("background-color: rgba(239, 68, 68, 0.06);")
+            elif decision in ("EVICT", "EVICTED"):
+                styles.append("background-color: rgba(245, 158, 11, 0.06);")
+            else:
+                styles.append("")
+    return styles
 
 
 if "system" not in st.session_state:
@@ -111,7 +130,11 @@ with st.sidebar:
             overview = system.simulate(workload, request_count)
     if st.button("Replay Kaggle events", use_container_width=True):
         with st.spinner("Replaying chronological e-commerce traffic..."):
-            overview = system.simulate_kaggle(request_count)
+            try:
+                overview = system.simulate_kaggle(request_count)
+            except RuntimeError as exc:
+                st.warning(f"Kaggle event replay notice: {exc}. Replaying realistic e-commerce traffic instead.")
+                overview = system.simulate("realistic", request_count)
     if st.button("Run algorithm benchmark", use_container_width=True):
         with st.spinner("Comparing cache policies..."):
             st.session_state.comparison = system.benchmark(workload, request_count, 5)
@@ -259,12 +282,12 @@ else:
         reason = "The latest recorded decision does not contain an eviction or retention rationale."
         heading = "WHY THIS DECISION?"
     factor_rows = [
-        {"Factor": "ML prediction score", "Value": insight_score},
-        {"Factor": "Frequency", "Value": latest_decision.get("frequency", selected.get("frequency"))},
-        {"Factor": "Recency", "Value": format_time(latest_decision.get("last_access", selected.get("last_access")))},
-        {"Factor": "Cost impact", "Value": latest_decision.get("cost", selected.get("cost"))},
-        {"Factor": "Size", "Value": latest_decision.get("size", selected.get("size"))},
-        {"Factor": "Retention score", "Value": selected_retention if selected_retention is not None else "Unavailable"},
+        {"Factor": "ML prediction score", "Value": f"{float(insight_score):.4f}" if insight_score is not None else "-"},
+        {"Factor": "Frequency", "Value": str(latest_decision.get("frequency", selected.get("frequency")) or "-")},
+        {"Factor": "Recency", "Value": str(format_time(latest_decision.get("last_access", selected.get("last_access"))))},
+        {"Factor": "Cost impact", "Value": f"{float(latest_decision.get('cost', selected.get('cost')) or 0):.2f}"},
+        {"Factor": "Size", "Value": f"{int(latest_decision.get('size', selected.get('size')) or 0)} B"},
+        {"Factor": "Retention score", "Value": f"{float(selected_retention):.4f}" if selected_retention is not None else "Unavailable"},
     ]
     st.markdown(f"**{heading}**  \n{reason}")
     st.caption(f"Decision mode: {selected_mode}")
@@ -294,7 +317,7 @@ else:
     with stream:
         st.caption("Live request stream")
         stream_frame = logs.head(12)[["Time", "key", "Decision", "Score"]].rename(columns={"key": "Key"})
-        st.dataframe(stream_frame, hide_index=True, use_container_width=True)
+        st.dataframe(stream_frame.style.apply(event_style, axis=1), hide_index=True, use_container_width=True)
     evictions = logs[logs["Decision"] == "EVICT"]
     if not evictions.empty:
         st.caption("Eviction log: lowest prediction score or exploration candidate")
@@ -307,7 +330,8 @@ if comparison is None:
     st.info("Run the algorithm benchmark to compare LRU, LFU, GDS, and Adaptive.")
 else:
     comparison_frame = pd.DataFrame(comparison).rename(columns={
-        "algorithm": "Algorithm", "hit_rate": "Hit Rate",
+        "algorithm": "Algorithm", "hits": "Hits", "misses": "Misses",
+        "hit_rate": "Hit Rate", "evictions": "Evictions", "refreshes": "Refreshes",
         "average_latency_ms": "Latency (ms)", "cost": "Cost",
     })
     best = comparison_frame.loc[comparison_frame["Hit Rate"].idxmax()]
@@ -316,8 +340,15 @@ else:
     with chart:
         st.bar_chart(comparison_frame.set_index("Algorithm")["Hit Rate"], color="#0f766e")
     with table:
-        st.dataframe(comparison_frame[["Algorithm", "Hit Rate", "Latency (ms)", "Cost"]],
-                     hide_index=True, use_container_width=True)
+        cols_to_show = [c for c in ["Algorithm", "Hits", "Misses", "Hit Rate", "Evictions", "Refreshes", "Latency (ms)", "Cost"] if c in comparison_frame.columns]
+        display_frame = comparison_frame[cols_to_show].copy()
+        if "Hit Rate" in display_frame.columns:
+            display_frame["Hit Rate"] = display_frame["Hit Rate"].apply(lambda v: f"{v:.1%}" if isinstance(v, (int, float)) else v)
+        if "Latency (ms)" in display_frame.columns:
+            display_frame["Latency (ms)"] = display_frame["Latency (ms)"].apply(lambda v: f"{v:.2f}" if isinstance(v, (int, float)) else v)
+        if "Cost" in display_frame.columns:
+            display_frame["Cost"] = display_frame["Cost"].apply(lambda v: f"{v:.2f}" if isinstance(v, (int, float)) else v)
+        st.dataframe(display_frame, hide_index=True, use_container_width=True)
 
 st.header("AI system status")
 learning_cols = st.columns(4)

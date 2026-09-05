@@ -39,12 +39,19 @@ def run(algorithm: str, workload: list[str], workload_type: str, capacity: int,
         "put_operations": 0,
     }
     cache.set_workload(workload_type)
+    cache.verbose_logging = False
     warmup_started = perf_counter()
     warmup = (workload * ((warmup_requests + len(workload) - 1) // len(workload)))[:warmup_requests]
     for key in warmup:
         _send_request(cache, key, workload_type, Metrics())
     warmup_seconds = perf_counter() - warmup_started
+
     metrics = Metrics()
+    cache.evictions = 0
+    cache.refreshes = 0
+    cache.decision_counts = {"retain": 0, "evict": 0, "refresh": 0}
+    cache.verbose_logging = True
+
     evaluation_started = perf_counter()
     for key in workload:
         _send_request(cache, key, workload_type, metrics)
@@ -53,6 +60,9 @@ def run(algorithm: str, workload: list[str], workload_type: str, capacity: int,
     total_seconds = perf_counter() - total_started
     return {
         **metrics.snapshot(),
+        "evictions": cache.evictions,
+        "refreshes": cache.refreshes,
+        "decision_counts": dict(cache.decision_counts),
         "warmup_phase": learning.get("warmup_phase", False),
         "training_samples": learning.get("training_samples", 0),
         "initialization_seconds": initialization_seconds,
@@ -80,18 +90,19 @@ def run_comparison(workload_type: str = "spike", requests: int = 200,
 def main() -> None:
     """Run the comparison from the command line."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--workload", choices=["steady", "spike", "gradual"], default="spike")
+    parser.add_argument("--workload", choices=["steady", "spike", "gradual", "realistic"], default="spike")
     parser.add_argument("--requests", type=int, default=200)
     parser.add_argument("--capacity", type=int, default=5)
     args = parser.parse_args()
 
-    print(f"Benchmark: {args.workload} ({args.requests} requests)")
-    for result in run_comparison(args.workload, args.requests, args.capacity):
-        print(f"{result['algorithm']} hits={result['hits']} misses={result['misses']} "
-              f"hit_rate={result['hit_rate']:.1%}")
-        print(f"{result['algorithm']:8} hit_rate={result['hit_rate']:.1%}  "
-              f"avg_latency={result['average_latency_ms']:.2f}ms  "
-              f"cost={result['cost']:.2f}")
+    print(f"\nBenchmark: {args.workload.upper()} ({args.requests} requests, capacity={args.capacity})")
+    results = run_comparison(args.workload, args.requests, args.capacity)
+    print("\n" + "=" * 90)
+    print(f"{'Algorithm':<10} | {'Hits':>6} | {'Misses':>6} | {'Hit Rate':>10} | {'Evictions':>9} | {'Refreshes':>9} | {'Latency':>10} | {'Cost':>8}")
+    print("-" * 90)
+    for r in results:
+        print(f"{r['algorithm']:<10} | {r['hits']:>6} | {r['misses']:>6} | {r['hit_rate']:>9.1%} | {r['evictions']:>9} | {r['refreshes']:>9} | {r['average_latency_ms']:>8.2f}ms | {r['cost']:>8.2f}")
+    print("=" * 90 + "\n")
 
 
 if __name__ == "__main__":

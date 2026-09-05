@@ -25,6 +25,10 @@ class AdaptiveCacheManager:
         self.scorer = ScoringEngine()
         self.last_prediction_score: float | None = None
         self.decider = DecisionEngine(self.scorer, settings.decision_threshold)
+        self.evictions: int = 0
+        self.refreshes: int = 0
+        self.decision_counts: dict[str, int] = {"retain": 0, "evict": 0, "refresh": 0}
+        self.verbose_logging: bool = True
         if self.algorithm == "adaptive":
             self.policy.set_scorer(self.scorer)
 
@@ -50,39 +54,74 @@ class AdaptiveCacheManager:
             return None
         value = self.redis.get(key)
         score = self._score_for(item)
-        log_decision(key, "hit", self.algorithm_name, score)
+
         if self.algorithm == "adaptive":
             self.scorer.track_reuse(key, item)
+            decision, dec_score = self.decider.decide_with_score(item)
+            if decision == "refresh":
+                self.refreshes += 1
+                self.decision_counts["refresh"] += 1
+                item.touch(getattr(self.scorer, "request_number", 0))
+            elif decision == "evict":
+                self.decision_counts["evict"] += 1
+            else:
+                self.decision_counts["retain"] += 1
+
+            if self.verbose_logging:
+                print(f"[ADAPTIVE DECISION] object={key} score={dec_score:.4f} decision={decision}")
+            log_decision(key, "hit", self.algorithm_name, dec_score, {"decision": decision})
+        else:
+            log_decision(key, "hit", self.algorithm_name, score)
+
         return item.value if value is None else value
 
     def put(self, key: str, value, cost: float = 1.0) -> None:
         was_present = key in self.policy.items
         evicted = self.policy.put(key, value, cost)
         if evicted:
+            self.evictions += 1
             evicted_score = getattr(self.policy, "last_evicted_score", None)
+            if self.algorithm == "adaptive":
+                self.decision_counts["evict"] += 1
+                if self.verbose_logging:
+                    ev_val = evicted_score if evicted_score is not None else 0.0
+                    print(f"[ADAPTIVE DECISION] object={evicted} score={ev_val:.4f} decision=evict")
             metadata = {
                 "decision_mode": getattr(self.policy, "last_eviction_mode", None),
                 "retention_score": getattr(self.policy, "last_evicted_retention_score", None),
                 "decision_target": "evicted_item",
                 **getattr(self.policy, "last_eviction_metadata", {}),
             }
-            print(f"Evicting: {evicted} Algo: {self.algorithm}")
-            if evicted_score is not None:
-                print(f"Score: {evicted_score:.6f}")
             self.redis.delete(evicted)
             log_decision(evicted, "evict", self.algorithm_name, evicted_score, metadata)
         self.redis.set(key, value)
-        decision = self.decide(key) if self.algorithm == "adaptive" else "keep"
-        # Expose the dashboard-friendly wording while retaining the decision engine API.
-        decision = "evicted" if decision is None else decision
-        decision = "keep" if decision == "retain" else decision
         item = self.policy.items.get(key)
         score = self._score_for(item) if item else None
+        decision = "keep"
+
+        if self.algorithm == "adaptive" and item:
+            item_dec, item_score = self.decider.decide_with_score(item)
+            score = item_score
+            decision = item_dec
+            if decision == "refresh":
+                self.refreshes += 1
+                self.decision_counts["refresh"] += 1
+            elif decision == "evict":
+                self.decision_counts["evict"] += 1
+            else:
+                self.decision_counts["retain"] += 1
+
+            if self.verbose_logging:
+                print(f"[ADAPTIVE DECISION] object={key} score={item_score:.4f} decision={decision}")
+
+        # Expose the dashboard-friendly wording while retaining the decision engine API.
+        log_decision_str = "evicted" if decision is None else decision
+        log_decision_str = "keep" if log_decision_str == "retain" else log_decision_str
         retention_score = None
         if self.algorithm == "adaptive" and item and score is not None:
-            retention_score = score * max(item.cost, 0.01) / max(item.size, 1)
-        log_decision(key, decision, self.algorithm_name, score, {
-            "decision_mode": "RETAIN" if decision == "keep" else decision.upper(),
+            retention_score = getattr(self.policy, "_retention_score", lambda it: score)(item)
+        log_decision(key, log_decision_str, self.algorithm_name, score, {
+            "decision_mode": "RETAIN" if log_decision_str == "keep" else log_decision_str.upper(),
             "decision_target": "cache_item",
             "retention_score": retention_score,
             "frequency": item.frequency if item else None,
