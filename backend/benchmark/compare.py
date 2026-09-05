@@ -1,5 +1,6 @@
 """CLI and reusable benchmark for identical cache-policy workloads."""
 import argparse
+from time import perf_counter
 
 from backend.cache.cache_manager import AdaptiveCacheManager
 from backend.metrics.metrics import Metrics
@@ -11,10 +12,17 @@ MISS_LATENCY_MS = 10.0
 
 
 def _send_request(cache, key: str, workload_type: str, metrics: Metrics) -> None:
+    counters = getattr(cache, "_benchmark_counters", None)
+    if counters is not None:
+        counters["get_operations"] += 1
     value = cache.get(key)
     hit, cost = value is not None, 0.0
     if not hit:
-        value, cost = fetch_data(key)
+        # Benchmark latency is represented by HIT_LATENCY_MS/MISS_LATENCY_MS;
+        # avoid sleeping in the simulator while measuring policy behavior.
+        value, cost = fetch_data(key, delay_ms=0.0)
+        if counters is not None:
+            counters["put_operations"] += 1
         cache.put(key, value, cost)
     metrics.record(hit, HIT_LATENCY_MS if hit else MISS_LATENCY_MS, cost)
 
@@ -22,16 +30,40 @@ def _send_request(cache, key: str, workload_type: str, metrics: Metrics) -> None
 def run(algorithm: str, workload: list[str], workload_type: str, capacity: int,
         warmup_requests: int = 1000) -> dict:
     """Warm each policy before measuring the requested workload."""
+    total_started = perf_counter()
+    init_started = perf_counter()
     cache, metrics = AdaptiveCacheManager(algorithm, capacity), Metrics()
+    initialization_seconds = perf_counter() - init_started
+    cache._benchmark_counters = {
+        "get_operations": 0,
+        "put_operations": 0,
+    }
     cache.set_workload(workload_type)
+    warmup_started = perf_counter()
     warmup = (workload * ((warmup_requests + len(workload) - 1) // len(workload)))[:warmup_requests]
     for key in warmup:
         _send_request(cache, key, workload_type, Metrics())
+    warmup_seconds = perf_counter() - warmup_started
     metrics = Metrics()
+    evaluation_started = perf_counter()
     for key in workload:
         _send_request(cache, key, workload_type, metrics)
-    return {**metrics.snapshot(), "warmup_phase": cache.learning_metrics().get("warmup_phase", False),
-            "training_samples": cache.learning_metrics().get("training_samples", 0)}
+    evaluation_seconds = perf_counter() - evaluation_started
+    learning = cache.learning_metrics()
+    total_seconds = perf_counter() - total_started
+    return {
+        **metrics.snapshot(),
+        "warmup_phase": learning.get("warmup_phase", False),
+        "training_samples": learning.get("training_samples", 0),
+        "initialization_seconds": initialization_seconds,
+        "warmup_seconds": warmup_seconds,
+        "evaluation_seconds": evaluation_seconds,
+        "total_seconds": total_seconds,
+        "requests_processed": len(warmup) + len(workload),
+        "get_operations": cache._benchmark_counters["get_operations"],
+        "put_operations": cache._benchmark_counters["put_operations"],
+        "ml_training_operations": learning.get("training_samples", 0),
+    }
 
 
 def run_comparison(workload_type: str = "spike", requests: int = 200,

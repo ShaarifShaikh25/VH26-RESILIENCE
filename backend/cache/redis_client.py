@@ -16,7 +16,12 @@ class RedisClient:
         self.client = None
         if redis:
             try:
-                candidate = redis.Redis.from_url(url, decode_responses=True)
+                candidate = redis.Redis.from_url(
+                    url,
+                    decode_responses=True,
+                    socket_connect_timeout=0.25,
+                    socket_timeout=0.25,
+                )
                 candidate.ping()
                 self.client = candidate
             except redis.RedisError:

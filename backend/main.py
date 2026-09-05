@@ -33,6 +33,12 @@ def get_metric_history() -> list[dict]:
     return system.metric_history()
 
 
+@app.get("/metrics/cost")
+def get_cost_breakdown() -> dict:
+    """Return request-level simulated backend cost accounting."""
+    return system.cost_breakdown()
+
+
 @app.get("/cache/state")
 def get_cache_state() -> list[dict]:
     """Return all current cache keys and their metadata."""

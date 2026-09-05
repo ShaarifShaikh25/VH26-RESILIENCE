@@ -60,11 +60,17 @@ class AdaptiveCacheManager:
         evicted = self.policy.put(key, value, cost)
         if evicted:
             evicted_score = getattr(self.policy, "last_evicted_score", None)
+            metadata = {
+                "decision_mode": getattr(self.policy, "last_eviction_mode", None),
+                "retention_score": getattr(self.policy, "last_evicted_retention_score", None),
+                "decision_target": "evicted_item",
+                **getattr(self.policy, "last_eviction_metadata", {}),
+            }
             print(f"Evicting: {evicted} Algo: {self.algorithm}")
             if evicted_score is not None:
                 print(f"Score: {evicted_score:.6f}")
             self.redis.delete(evicted)
-            log_decision(evicted, "evict", self.algorithm_name, evicted_score)
+            log_decision(evicted, "evict", self.algorithm_name, evicted_score, metadata)
         self.redis.set(key, value)
         decision = self.decide(key) if self.algorithm == "adaptive" else "keep"
         # Expose the dashboard-friendly wording while retaining the decision engine API.
@@ -72,7 +78,18 @@ class AdaptiveCacheManager:
         decision = "keep" if decision == "retain" else decision
         item = self.policy.items.get(key)
         score = self._score_for(item) if item else None
-        log_decision(key, decision, self.algorithm_name, score)
+        retention_score = None
+        if self.algorithm == "adaptive" and item and score is not None:
+            retention_score = score * max(item.cost, 0.01) / max(item.size, 1)
+        log_decision(key, decision, self.algorithm_name, score, {
+            "decision_mode": "RETAIN" if decision == "keep" else decision.upper(),
+            "decision_target": "cache_item",
+            "retention_score": retention_score,
+            "frequency": item.frequency if item else None,
+            "last_access": item.last_accessed if item else None,
+            "cost": item.cost if item else None,
+            "size": item.size if item else None,
+        })
         if self.algorithm == "adaptive" and not was_present:
             tracking_item = item or self.policy._cache_object(key, value, cost)
             self.scorer.track_new_item(tracking_item)

@@ -15,6 +15,9 @@ class AdaptiveCache(BaseCache):
         super().__init__(capacity)
         self.scorer = scorer
         self.last_evicted_score: float | None = None
+        self.last_evicted_retention_score: float | None = None
+        self.last_eviction_mode: str | None = None
+        self.last_eviction_metadata: dict = {}
         self.exploration_rate = 0.20
         self.exploration_count = 0
         self.exploitation_count = 0
@@ -54,15 +57,27 @@ class AdaptiveCache(BaseCache):
             return None
         candidates = list(self.items.values())
         if self.warmup_phase:
+            self.last_eviction_mode = "WARMUP"
             victim = min(candidates, key=lambda item: item.last_accessed)
         elif len(candidates) > 1 and random.random() < self.exploration_rate:
+            self.last_eviction_mode = "EXPLORATION"
             self.exploration_count += 1
             ranked = sorted(candidates, key=self._retention_score)
             bottom_count = max(1, int(len(ranked) * 0.30))
             victim = random.choice(ranked[:bottom_count])
         else:
+            self.last_eviction_mode = "EXPLOITATION"
             self.exploitation_count += 1
             victim = min(candidates, key=self._retention_score)
         self.last_evicted_score = self._score(victim)
+        self.last_evicted_retention_score = (
+            self.last_evicted_score * max(victim.cost, 0.01) / max(victim.size, 1)
+        )
+        self.last_eviction_metadata = {
+            "frequency": victim.frequency,
+            "last_access": victim.last_accessed,
+            "cost": victim.cost,
+            "size": victim.size,
+        }
         del self.items[victim.key]
         return victim.key

@@ -8,12 +8,15 @@ logger = logging.getLogger("adaptive_cache")
 _recent_decisions: deque[dict] = deque(maxlen=200)
 
 
-def log_decision(key: str, decision: str, algorithm: str, score: float | None = None) -> None:
+def log_decision(key: str, decision: str, algorithm: str, score: float | None = None,
+                 metadata: dict | None = None) -> None:
     """Log and retain a compact cache event for API and dashboard consumers."""
     event = {
         "timestamp": time(), "key": key, "decision": decision.upper(),
         "algorithm": algorithm.upper(), "score": score,
     }
+    if metadata:
+        event.update(metadata)
     _recent_decisions.append(event)
     logger.info("key=%s decision=%s algorithm=%s score=%s", key, decision, algorithm, score)
 

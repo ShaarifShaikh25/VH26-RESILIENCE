@@ -34,10 +34,12 @@ class DashboardService:
         if not hit:
             value, cost = fetch_data(key)
             self.cache.put(key, value, cost)
+        event_type = value.get("event", "view") if isinstance(value, dict) else "view"
         latency_ms = (perf_counter() - started) * 1000
         self.metrics.record(
             hit, latency_ms, cost, self.cache.last_prediction_score,
             self.cache.learning_metrics().get("training_samples", 0),
+            key=key, event_type=event_type, requested_cost=cost,
         )
         return {"key": key, "status": "HIT" if hit else "MISS", "data": value,
                 "latency_ms": latency_ms, "cost": cost, "algorithm": self.cache.algorithm}
@@ -59,6 +61,7 @@ class DashboardService:
         self.metrics.record(
             hit, latency_ms, 0.0 if hit else cost, self.cache.last_prediction_score,
             self.cache.learning_metrics().get("training_samples", 0),
+            key=key, event_type=value.get("event", "view"), requested_cost=cost,
         )
         return {"key": key, "status": "HIT" if hit else "MISS",
                 "latency_ms": latency_ms, "cost": 0.0 if hit else cost}
@@ -104,6 +107,9 @@ class DashboardService:
 
     def metric_history(self) -> list[dict]:
         return self.metrics.time_series()
+
+    def cost_breakdown(self) -> dict:
+        return self.metrics.cost_breakdown()
 
     def decision_logs(self, limit: int = 50) -> list[dict]:
         return recent_decisions(limit)

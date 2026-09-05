@@ -4,6 +4,19 @@ import os
 import requests
 
 
+CANONICAL_ALGORITHMS = ("LRU", "LFU", "GDS", "Adaptive")
+
+
+def normalize_algorithm(value: str) -> str:
+    """Normalize supported backend identifiers to dashboard display names."""
+    normalized = value.strip().upper()
+    if normalized == "ADAPTIVE":
+        return "Adaptive"
+    if normalized in {"LRU", "LFU", "GDS"}:
+        return normalized
+    raise ValueError(f"Unsupported algorithm: {value}")
+
+
 class DashboardAPI:
     """Call the running FastAPI service used by the dashboard."""
 
@@ -29,6 +42,9 @@ class DashboardAPI:
     def history(self) -> list[dict]:
         return self._request("GET", "/metrics/history")
 
+    def cost_breakdown(self) -> dict:
+        return self._request("GET", "/metrics/cost")
+
     def cache_state(self) -> list[dict]:
         return self._request("GET", "/cache/state")
 
@@ -36,7 +52,8 @@ class DashboardAPI:
         return self._request("GET", "/decisions", params={"limit": limit})
 
     def select_algorithm(self, algorithm: str) -> dict:
-        return self._request("POST", f"/algorithm/{algorithm}")
+        canonical = normalize_algorithm(algorithm)
+        return self._request("POST", f"/algorithm/{canonical.lower()}")
 
     def simulate(self, workload: str, requests_count: int) -> dict:
         return self._request(
